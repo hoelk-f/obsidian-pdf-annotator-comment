@@ -345,12 +345,20 @@ class PdfAnnotatorView extends FileView {
     const rects = Array.from(range.getClientRects());
     const pageBox = pageEl.getBoundingClientRect();
 
-    const quads = rects.map(r => ({
-      x: r.left - pageBox.left,
-      y: r.top - pageBox.top,
-      w: r.width,
-      h: r.height
-    })).filter(q => q.w > 1 && q.h > 1);
+    const quads = rects.map(r => {
+      const left = Math.max(r.left, pageBox.left);
+      const right = Math.min(r.right, pageBox.right);
+      const top = Math.max(r.top, pageBox.top);
+      const bottom = Math.min(r.bottom, pageBox.bottom);
+      const w = right - left;
+      const h = bottom - top;
+      return {
+        x: left - pageBox.left,
+        y: top - pageBox.top,
+        w,
+        h
+      };
+    }).filter(q => q.w > 1 && q.h > 1);
 
     if (quads.length === 0) return;
 

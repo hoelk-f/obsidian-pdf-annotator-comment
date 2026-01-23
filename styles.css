@@ -39,12 +39,14 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 3;
 }
 
 .pdfaw-highlight {
   position: absolute;
   border-radius: 2px;
-  opacity: 0.35;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
 }
 
 .pdfaw-highlight.yellow { background: #ffd54f; }
