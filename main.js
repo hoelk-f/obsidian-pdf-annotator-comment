@@ -21843,14 +21843,14 @@ var PdfAnnotatorView = class extends import_obsidian.FileView {
     this.root = this.contentEl.createDiv({ cls: "pdfaw-root" });
     this.viewerEl = this.root.createDiv({ cls: "pdfaw-viewer" });
     this.sidebarEl = this.root.createDiv({ cls: "pdfaw-sidebar" });
-    this.viewerEl.addEventListener("mouseup", () => this.captureSelection());
-    this.viewerEl.addEventListener("contextmenu", (e) => this.onContextMenu(e));
-    window.addEventListener("click", () => this.hideContext());
+    this.registerDomEvent(this.viewerEl, "mouseup", () => this.captureSelection());
+    this.registerDomEvent(this.viewerEl, "contextmenu", (e) => this.onContextMenu(e));
+    this.registerDomEvent(window, "click", () => this.hideContext());
   }
   async onLoadFile(file) {
     if (file.extension.toLowerCase() !== "pdf") return;
     this.pdfPath = file.path;
-    const workerVaultPath = `${this.app.vault.configDir}/plugins/pdf-annotator-word/pdf.worker.min.mjs`;
+    const workerVaultPath = `${this.app.vault.configDir}/plugins/obsidian-pdf-annotator-comment/pdf.worker.min.mjs`;
     __webpack_exports__GlobalWorkerOptions.workerSrc = this.app.vault.adapter.getResourcePath(workerVaultPath);
     await this.loadSidecar();
     await this.renderPdf(file);
@@ -21977,7 +21977,7 @@ var PdfAnnotatorView = class extends import_obsidian.FileView {
     };
     add("Highlight (Yellow)", () => this.createAnnotation("yellow"));
     add("Highlight (Green)", () => this.createAnnotation("green"));
-    add("Comment\u2026", () => this.addComment());
+    add("Comment...", () => this.addComment());
     this.contextEl = ctx;
   }
   hideContext() {
@@ -22003,7 +22003,7 @@ var PdfAnnotatorView = class extends import_obsidian.FileView {
       updatedAt: now
     });
     await this.saveSidecar();
-    this.renderPdf(this.file);
+    await this.renderPdf(this.file);
     this.renderSidebar();
     window.getSelection()?.removeAllRanges();
   }
