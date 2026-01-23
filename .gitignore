@@ -1,0 +1,16 @@
+# Node / build artifacts
+node_modules/
+dist/
+
+# Obsidian local data
+.obsidian/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
