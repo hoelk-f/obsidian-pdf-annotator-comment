@@ -1,0 +1,19 @@
+{
+  "name": "pdf-annotator-word",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+  "postinstall": "copy node_modules\\pdfjs-dist\\build\\pdf.worker.min.mjs .\\pdf.worker.min.mjs",
+  "dev": "node esbuild.config.mjs",
+  "build": "NODE_ENV=production node esbuild.config.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.4",
+    "obsidian": "latest"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.6.82"
+  }
+}
