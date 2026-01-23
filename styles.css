@@ -17,6 +17,26 @@
   padding: 10px;
 }
 
+.pdfaw-sidebar-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pdfaw-sidebar-tabs button {
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  cursor: pointer;
+}
+
+.pdfaw-sidebar-tabs button.is-active {
+  background: var(--background-secondary);
+  font-weight: 600;
+}
+
 .pdfaw-page {
   position: relative;
   margin: 0 auto 18px auto;
@@ -107,4 +127,11 @@
 
 .pdfaw-context button:hover {
   background: var(--background-modifier-hover);
+}
+
+.pdfaw-textlayer span {
+  color: transparent;
+}
+.pdfaw-textlayer ::selection {
+  background: rgba(66, 165, 245, 0.35);
 }
