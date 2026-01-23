@@ -107,6 +107,7 @@ class PdfAnnotatorView extends FileView {
   private scale = 1.35;
 
   private sidecar: Sidecar | null = null;
+  private pendingFile: TFile | null = null;
 
   private lastSelectionText = "";
   private lastSelectionQuadsByPage = new Map<number, Quad[]>();
@@ -121,6 +122,21 @@ class PdfAnnotatorView extends FileView {
     return this.file?.name ?? "PDF";
   }
 
+  async setState(state: any, result: any) {
+    if (state?.file) {
+      const af = this.app.vault.getAbstractFileByPath(state.file);
+      if (af instanceof TFile) {
+        this.file = af;
+        if (this.viewerEl) {
+          await this.onLoadFile(af);
+        } else {
+          this.pendingFile = af;
+        }
+      }
+    }
+    return result;
+  }
+
   async onOpen() {
     this.root = this.contentEl.createDiv({ cls: "pdfaw-root" });
     this.viewerEl = this.root.createDiv({ cls: "pdfaw-viewer" });
@@ -131,6 +147,12 @@ class PdfAnnotatorView extends FileView {
       this.onContextMenu(e as MouseEvent)
     );
     this.registerDomEvent(window, "click", () => this.hideContext());
+
+    if (this.pendingFile) {
+      const file = this.pendingFile;
+      this.pendingFile = null;
+      await this.onLoadFile(file);
+    }
   }
 
   async onLoadFile(file: TFile) {
