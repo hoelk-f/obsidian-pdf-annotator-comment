@@ -292,7 +292,7 @@ class PdfAnnotatorView extends FileView {
     const textLayerDiv = pageWrap.createDiv({ cls: "pdfaw-textlayer" });
     textLayerDiv.style.position = "absolute";
     textLayerDiv.style.inset = "0";
-    textLayerDiv.style.opacity = "0.02";
+    textLayerDiv.style.opacity = "1";
     textLayerDiv.style.userSelect = "text";
     textLayerDiv.style.pointerEvents = "auto";
     textLayerDiv.dataset.page = String(pageNum);
