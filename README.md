@@ -1,12 +1,13 @@
 # obsidian-pdf-annotator-comment
 
-An Obsidian plugin that replaces the default PDF view with a custom PDF reader
-and a Word-style comment sidebar. It supports two highlight colors and lets you
-attach comments to text selections directly inside Obsidian.
+An Obsidian plugin that provides a custom PDF reader with a Word-style comment
+sidebar. It supports two highlight colors and lets you attach comments to text
+selections directly inside Obsidian.
 
 ## Features
 
 - Custom PDF view for `.pdf` files.
+- Command to open the current PDF in the annotator view.
 - Text selection highlights in two colors (yellow, green).
 - Comment modal for selections, with a dedicated sidebar.
 - Edit/delete UI for annotations in the sidebar.
@@ -14,7 +15,8 @@ attach comments to text selections directly inside Obsidian.
 
 ## How it works
 
-- The plugin registers a custom view for the `pdf` extension.
+- The plugin registers a custom view type for PDFs.
+- Use the command palette action to open the current PDF in the annotator view.
 - Selections are captured from the invisible text layer of the rendered PDF.
 - Highlights and comments are stored in a sidecar file:
   `<your-pdf>.obsidian-annot.json`.
@@ -33,17 +35,18 @@ attach comments to text selections directly inside Obsidian.
    - `pdf.worker.min.mjs`
 4. Make sure the folder name matches the plugin ID:
    `obsidian-pdf-annotator-comment`.
-5. Enable the plugin in Obsidian Settings → Community plugins.
+5. Enable the plugin in Obsidian Settings -> Community plugins.
 
 ## Usage
 
 1. Open any PDF in your vault.
-2. Select text inside the PDF.
-3. Right-click to open the context menu:
+2. Run the command palette action: `Open PDF in Annotator view`.
+3. Select text inside the PDF.
+4. Right-click to open the context menu:
    - Highlight (Yellow)
    - Highlight (Green)
    - Comment...
-4. All annotations appear in the right sidebar with edit/delete actions.
+5. All annotations appear in the right sidebar with edit/delete actions.
 
 ## Data format
 
@@ -87,9 +90,8 @@ Notes:
 
 ## Known limitations
 
-- Rendering is fully custom and does not reuse Obsidian’s native PDF viewer.
+- Rendering is fully custom and does not reuse Obsidian's native PDF viewer.
 
 ## License
 
-This project is currently unlicensed. Add a license file if you plan to publish
-or distribute it.
+MIT License. See `LICENSE`.

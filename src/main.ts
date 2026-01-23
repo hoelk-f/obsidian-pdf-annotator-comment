@@ -408,7 +408,22 @@ class PdfAnnotatorView extends FileView {
 export default class PdfAnnotatorWordPlugin extends Plugin {
   async onload() {
     this.registerView(VIEW_TYPE, leaf => new PdfAnnotatorView(leaf));
-    this.registerExtensions(["pdf"], VIEW_TYPE);
+    this.addCommand({
+      id: "open-pdf-in-annotator",
+      name: "Open PDF in Annotator view",
+      checkCallback: (checking: boolean) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension.toLowerCase() !== "pdf") return false;
+        if (checking) return true;
+        const leaf = this.app.workspace.getLeaf(false);
+        leaf.setViewState({
+          type: VIEW_TYPE,
+          state: { file: file.path },
+          active: true
+        });
+        return true;
+      }
+    });
   }
 
   onunload() {
