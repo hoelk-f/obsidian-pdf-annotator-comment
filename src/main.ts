@@ -16,7 +16,7 @@ const VIEW_TYPE = "pdfaw-view";
    Types
 ========================= */
 
-type HighlightColor = "yellow" | "green";
+type HighlightColor = "yellow" | "red" | "green" | "blue";
 
 type Quad = {
   x: number;
@@ -108,6 +108,10 @@ class PdfAnnotatorView extends FileView {
 
   private sidecar: Sidecar | null = null;
   private pendingFile: TFile | null = null;
+  private pageMeta = new Map<number, { page: any; viewport: any; rendered: boolean }>();
+  private pageWraps = new Map<number, HTMLDivElement>();
+  private overlays = new Map<number, HTMLDivElement>();
+  private observer: IntersectionObserver | null = null;
 
   private lastSelectionText = "";
   private lastSelectionQuadsByPage = new Map<number, Quad[]>();
@@ -176,6 +180,11 @@ class PdfAnnotatorView extends FileView {
     this.sidebarEl?.empty();
     this.sidecar = null;
     this.pdfDoc = null;
+    this.pageMeta.clear();
+    this.pageWraps.clear();
+    this.overlays.clear();
+    this.observer?.disconnect();
+    this.observer = null;
   }
 
   /* =========================
@@ -212,6 +221,11 @@ class PdfAnnotatorView extends FileView {
     this.viewerEl.empty();
     this.lastSelectionText = "";
     this.lastSelectionQuadsByPage.clear();
+    this.pageMeta.clear();
+    this.pageWraps.clear();
+    this.overlays.clear();
+    this.observer?.disconnect();
+    this.observer = null;
 
     const buf = await this.app.vault.readBinary(file);
     this.pdfDoc = await (pdfjsLib as any).getDocument({ data: buf }).promise;
@@ -221,39 +235,84 @@ class PdfAnnotatorView extends FileView {
       const viewport = page.getViewport({ scale: this.scale });
 
       const pageWrap = this.viewerEl.createDiv({ cls: "pdfaw-page" });
+      pageWrap.dataset.page = String(pageNum);
       pageWrap.style.width = `${viewport.width}px`;
       pageWrap.style.height = `${viewport.height}px`;
-
-      const canvas = pageWrap.createEl("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      const ctx = canvas.getContext("2d")!;
-      await page.render({ canvasContext: ctx, viewport }).promise;
-
-      const textLayerDiv = pageWrap.createDiv();
-      textLayerDiv.style.position = "absolute";
-      textLayerDiv.style.inset = "0";
-      textLayerDiv.style.opacity = "0";
-      textLayerDiv.style.userSelect = "text";
-      textLayerDiv.style.pointerEvents = "auto";
-      textLayerDiv.dataset.page = String(pageNum);
-
-      const textContent = await page.getTextContent();
-      const textLayer = new (pdfjsLib as any).TextLayer({
-        textContentSource: textContent,
-        container: textLayerDiv,
-        viewport
-      });
-      await textLayer.render();
+      this.pageMeta.set(pageNum, { page, viewport, rendered: false });
+      this.pageWraps.set(pageNum, pageWrap);
 
       const overlay = pageWrap.createDiv({ cls: "pdfaw-layer" });
       overlay.dataset.page = String(pageNum);
+      this.overlays.set(pageNum, overlay);
       this.renderHighlightsForPage(pageNum, overlay);
     }
+
+    this.setupIntersectionObserver();
   }
+
+  private setupIntersectionObserver() {
+    if (this.observer) this.observer.disconnect();
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const pageWrap = entry.target as HTMLDivElement;
+          const pageNum = Number(pageWrap.dataset.page);
+          if (!Number.isFinite(pageNum)) continue;
+          this.renderPage(pageNum);
+          this.observer?.unobserve(pageWrap);
+        }
+      },
+      { root: this.viewerEl, rootMargin: "300px 0px" }
+    );
+
+    for (const [, pageWrap] of this.pageWraps) {
+      this.observer.observe(pageWrap);
+    }
+  }
+
+  private async renderPage(pageNum: number) {
+    const meta = this.pageMeta.get(pageNum);
+    if (!meta || meta.rendered) return;
+    const pageWrap = this.pageWraps.get(pageNum);
+    if (!pageWrap) return;
+
+    const { page, viewport } = meta;
+
+    const canvas = pageWrap.createEl("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+
+    const ctx = canvas.getContext("2d")!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const textLayerDiv = pageWrap.createDiv({ cls: "pdfaw-textlayer" });
+    textLayerDiv.style.position = "absolute";
+    textLayerDiv.style.inset = "0";
+    textLayerDiv.style.opacity = "0";
+    textLayerDiv.style.userSelect = "text";
+    textLayerDiv.style.pointerEvents = "auto";
+    textLayerDiv.dataset.page = String(pageNum);
+
+    const textContent = await page.getTextContent();
+    const textLayer = new (pdfjsLib as any).TextLayer({
+      textContentSource: textContent,
+      container: textLayerDiv,
+      viewport
+    });
+    await textLayer.render();
+
+    const overlay = this.overlays.get(pageNum);
+    if (overlay) {
+      pageWrap.appendChild(overlay);
+      this.renderHighlightsForPage(pageNum, overlay);
+    }
+
+    meta.rendered = true;
+  }
+
 
   private renderHighlightsForPage(pageNum: number, overlay: HTMLDivElement) {
     overlay.empty();
@@ -279,7 +338,7 @@ class PdfAnnotatorView extends FileView {
 
     const range = sel.getRangeAt(0);
     const pageEl = (range.commonAncestorContainer as HTMLElement)
-      .parentElement?.closest("[data-page]") as HTMLElement | null;
+      .parentElement?.closest(".pdfaw-page") as HTMLElement | null;
     if (!pageEl) return;
 
     const pageNum = Number(pageEl.dataset.page);
@@ -316,8 +375,8 @@ class PdfAnnotatorView extends FileView {
     };
 
     add("Highlight (Yellow)", () => this.createAnnotation("yellow"));
-    add("Highlight (Green)", () => this.createAnnotation("green"));
-    add("Comment...", () => this.addComment());
+    add("Highlight (Red)", () => this.createAnnotation("red"));
+    add("Comment (Blue)...", () => this.addComment());
 
     this.contextEl = ctx;
   }
@@ -350,14 +409,14 @@ class PdfAnnotatorView extends FileView {
     });
 
     await this.saveSidecar();
-    await this.renderPdf(this.file!);
+    this.updateHighlightsForPage(page);
     this.renderSidebar();
     window.getSelection()?.removeAllRanges();
   }
 
   private addComment() {
     new TextModal(this.app, "Add comment", "", async (val) => {
-      await this.createAnnotation("yellow", val.trim());
+      await this.createAnnotation("blue", val.trim());
     }).open();
   }
 
@@ -367,19 +426,22 @@ class PdfAnnotatorView extends FileView {
 
   private renderSidebar() {
     this.sidebarEl.empty();
-    this.sidebarEl.createEl("h3", { text: "Annotations" });
+    this.sidebarEl.createEl("h3", { text: "Comments" });
 
-    const annotations = [...(this.sidecar?.annotations ?? [])].sort((a, b) => {
+    const annotations = [...(this.sidecar?.annotations ?? [])]
+      .filter(a => a.comment?.trim())
+      .sort((a, b) => {
       if (a.page !== b.page) return a.page - b.page;
       return a.createdAt - b.createdAt;
     });
 
     for (const a of annotations) {
       const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
+      card.onclick = () => this.scrollToAnnotation(a.id);
 
       const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
       meta.createDiv({ text: `p. ${a.page}` });
-      meta.createDiv({ text: a.color === "yellow" ? "Highlight: Yellow" : "Highlight: Green" });
+      meta.createDiv({ text: "Comment" });
 
       const text = a.text?.trim();
       if (text) {
@@ -392,12 +454,13 @@ class PdfAnnotatorView extends FileView {
       });
 
       const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
-      actions.createEl("button", { text: a.comment ? "Edit comment" : "Add comment" })
-        .onclick = () => this.editComment(a.id);
+      actions.createEl("button", { text: "Edit comment" })
+        .onclick = (e) => { e.stopPropagation(); this.editComment(a.id); };
       actions.createEl("button", { text: "Delete" })
-        .onclick = () => this.deleteAnnotation(a.id);
+        .onclick = (e) => { e.stopPropagation(); this.deleteAnnotation(a.id); };
     }
   }
+
 
   private editComment(id: string) {
     if (!this.sidecar) return;
@@ -414,13 +477,37 @@ class PdfAnnotatorView extends FileView {
 
   private async deleteAnnotation(id: string) {
     if (!this.sidecar) return;
+    const target = this.sidecar.annotations.find(a => a.id === id);
     const next = this.sidecar.annotations.filter(a => a.id !== id);
     if (next.length === this.sidecar.annotations.length) return;
     this.sidecar.annotations = next;
     await this.saveSidecar();
-    await this.renderPdf(this.file!);
+    if (target) this.updateHighlightsForPage(target.page);
     this.renderSidebar();
   }
+
+  private updateHighlightsForPage(pageNum: number) {
+    const overlay = this.overlays.get(pageNum);
+    if (!overlay) return;
+    this.renderHighlightsForPage(pageNum, overlay);
+  }
+
+  private async scrollToAnnotation(id: string) {
+    if (!this.sidecar) return;
+    const ann = this.sidecar.annotations.find(a => a.id === id);
+    if (!ann) return;
+
+    await this.renderPage(ann.page);
+
+    const pageWrap = this.pageWraps.get(ann.page);
+    if (!pageWrap) return;
+
+    const firstQuad = ann.quads[0];
+    const offset = firstQuad ? firstQuad.y - 40 : 0;
+    const targetTop = pageWrap.offsetTop + Math.max(0, offset);
+    this.viewerEl.scrollTo({ top: targetTop, behavior: "smooth" });
+  }
+
 }
 
 /* =========================

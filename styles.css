@@ -23,6 +23,18 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.15);
 }
 
+.pdfaw-page canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.pdfaw-textlayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
 .pdfaw-layer {
   position: absolute;
   inset: 0;
@@ -36,7 +48,9 @@
 }
 
 .pdfaw-highlight.yellow { background: #ffd54f; }
+.pdfaw-highlight.red    { background: #ef5350; }
 .pdfaw-highlight.green  { background: #66bb6a; }
+.pdfaw-highlight.blue   { background: #42a5f5; }
 
 .pdfaw-comment-card {
   border: 1px solid var(--background-modifier-border);
