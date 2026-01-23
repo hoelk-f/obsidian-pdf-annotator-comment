@@ -22017,12 +22017,48 @@ var PdfAnnotatorView = class extends import_obsidian.FileView {
   ========================= */
   renderSidebar() {
     this.sidebarEl.empty();
-    this.sidebarEl.createEl("h3", { text: "Comments" });
-    for (const a of this.sidecar?.annotations.filter((a2) => a2.comment) ?? []) {
+    this.sidebarEl.createEl("h3", { text: "Annotations" });
+    const annotations = [...(this.sidecar?.annotations ?? [])].sort((a, b) => {
+      if (a.page !== b.page) return a.page - b.page;
+      return a.createdAt - b.createdAt;
+    });
+    for (const a of annotations) {
       const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
-      card.createDiv({ text: `p. ${a.page}` });
-      card.createDiv({ text: a.comment });
+      const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
+      meta.createDiv({ text: `p. ${a.page}` });
+      meta.createDiv({ text: a.color === "yellow" ? "Highlight: Yellow" : "Highlight: Green" });
+      const text = a.text?.trim();
+      if (text) {
+        card.createDiv({ cls: "pdfaw-comment-text", text });
+      }
+      card.createDiv({
+        cls: "pdfaw-comment-body",
+        text: a.comment?.trim() ? a.comment.trim() : "No comment yet."
+      });
+      const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
+      actions.createEl("button", { text: a.comment ? "Edit comment" : "Add comment" }).onclick = () => this.editComment(a.id);
+      actions.createEl("button", { text: "Delete" }).onclick = () => this.deleteAnnotation(a.id);
     }
+  }
+  editComment(id) {
+    if (!this.sidecar) return;
+    const ann = this.sidecar.annotations.find((a) => a.id === id);
+    if (!ann) return;
+    new TextModal(this.app, "Edit comment", ann.comment ?? "", async (val) => {
+      ann.comment = val.trim() || void 0;
+      ann.updatedAt = Date.now();
+      await this.saveSidecar();
+      this.renderSidebar();
+    }).open();
+  }
+  async deleteAnnotation(id) {
+    if (!this.sidecar) return;
+    const next = this.sidecar.annotations.filter((a) => a.id !== id);
+    if (next.length === this.sidecar.annotations.length) return;
+    this.sidecar.annotations = next;
+    await this.saveSidecar();
+    await this.renderPdf(this.file);
+    this.renderSidebar();
   }
 };
 var PdfAnnotatorWordPlugin = class extends import_obsidian.Plugin {

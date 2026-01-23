@@ -55,6 +55,16 @@
   gap: 8px;
 }
 
+.pdfaw-comment-text {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 6px;
+}
+
+.pdfaw-comment-body {
+  margin-bottom: 8px;
+}
+
 .pdfaw-comment-actions button {
   margin-left: 6px;
 }

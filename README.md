@@ -9,6 +9,7 @@ attach comments to text selections directly inside Obsidian.
 - Custom PDF view for `.pdf` files.
 - Text selection highlights in two colors (yellow, green).
 - Comment modal for selections, with a dedicated sidebar.
+- Edit/delete UI for annotations in the sidebar.
 - Simple JSON sidecar file stored next to each PDF.
 
 ## How it works
@@ -42,7 +43,7 @@ attach comments to text selections directly inside Obsidian.
    - Highlight (Yellow)
    - Highlight (Green)
    - Comment...
-4. Comments appear in the right sidebar.
+4. All annotations appear in the right sidebar with edit/delete actions.
 
 ## Data format
 
@@ -86,8 +87,6 @@ Notes:
 
 ## Known limitations
 
-- No edit/delete UI for annotations yet.
-- Sidebar currently lists only comment annotations.
 - Rendering is fully custom and does not reuse Obsidian’s native PDF viewer.
 
 ## License
