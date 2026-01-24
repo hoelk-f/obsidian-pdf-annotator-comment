@@ -154,3 +154,31 @@
   background: var(--background-primary);
   color: var(--text-normal);
 }
+
+
+/* PDF.js-like text layer styles */
+.pdfaw-textlayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  transform-origin: 0 0;
+  z-index: 2;
+  color: transparent;
+}
+
+.pdfaw-textlayer span,
+.pdfaw-textlayer br {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0 0;
+}
+
+.pdfaw-textlayer ::selection {
+  background: rgba(66, 165, 245, 0.45);
+}
+
+.pdfaw-textlayer::-moz-selection {
+  background: rgba(66, 165, 245, 0.45);
+}

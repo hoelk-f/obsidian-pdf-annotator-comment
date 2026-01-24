@@ -244,9 +244,8 @@ class PdfAnnotatorView extends FileView {
 
       const pageWrap = this.viewerEl.createDiv({ cls: "pdfaw-page" });
       pageWrap.dataset.page = String(pageNum);
-      pageWrap.style.width = `${viewport.width}px`;
-      pageWrap.style.height = `${viewport.height}px`;
       pageWrap.style.setProperty("--scale-factor", String(this.scale));
+      (pdfjsLib as any).setLayerDimensions?.(pageWrap, viewport, false, true);
       this.pageMeta.set(pageNum, { page, viewport, rendered: false });
       this.pageWraps.set(pageNum, pageWrap);
 
