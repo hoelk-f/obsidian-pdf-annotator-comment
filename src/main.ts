@@ -246,6 +246,7 @@ class PdfAnnotatorView extends FileView {
       pageWrap.dataset.page = String(pageNum);
       pageWrap.style.width = `${viewport.width}px`;
       pageWrap.style.height = `${viewport.height}px`;
+      pageWrap.style.setProperty("--scale-factor", String(this.scale));
       this.pageMeta.set(pageNum, { page, viewport, rendered: false });
       this.pageWraps.set(pageNum, pageWrap);
 
@@ -298,6 +299,8 @@ class PdfAnnotatorView extends FileView {
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const textLayerDiv = pageWrap.createDiv({ cls: "pdfaw-textlayer" });
+    textLayerDiv.style.setProperty("--scale-factor", String(this.scale));
+    (pdfjsLib as any).setLayerDimensions?.(textLayerDiv, viewport, false, true);
     textLayerDiv.style.position = "absolute";
     textLayerDiv.style.inset = "0";
     textLayerDiv.style.opacity = "1";
@@ -508,72 +511,6 @@ class PdfAnnotatorView extends FileView {
       }, 300);
     });
   }
-
-  private renderCommentsList() {
-    this.sidebarEl.createEl("h3", { text: "Comments" });
-
-    const annotations = [...(this.sidecar?.annotations ?? [])]
-      .filter(a => a.comment?.trim())
-      .sort((a, b) => {
-        if (a.page !== b.page) return a.page - b.page;
-        return a.createdAt - b.createdAt;
-      });
-
-    for (const a of annotations) {
-      const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
-      card.onclick = () => this.scrollToAnnotation(a.id);
-
-      const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
-      meta.createDiv({ text: `p. ${a.page}` });
-      meta.createDiv({ text: "Comment" });
-
-      const text = a.text?.trim();
-      if (text) {
-        card.createDiv({ cls: "pdfaw-comment-text", text });
-      }
-
-      card.createDiv({
-        cls: "pdfaw-comment-body",
-        text: a.comment?.trim() ? a.comment!.trim() : "No comment yet."
-      });
-
-      const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
-      actions.createEl("button", { text: "Edit" })
-        .onclick = (e) => { e.stopPropagation(); this.editComment(a.id); };
-      actions.createEl("button", { text: "Delete" })
-        .onclick = (e) => { e.stopPropagation(); this.deleteAnnotation(a.id); };
-    }
-  }
-
-  private renderHighlightsList() {
-    this.sidebarEl.createEl("h3", { text: "Highlights" });
-
-    const annotations = [...(this.sidecar?.annotations ?? [])]
-      .filter(a => !a.comment?.trim())
-      .sort((a, b) => {
-        if (a.page !== b.page) return a.page - b.page;
-        return a.createdAt - b.createdAt;
-      });
-
-    for (const a of annotations) {
-      const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
-      card.onclick = () => this.scrollToAnnotation(a.id);
-
-      const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
-      meta.createDiv({ text: `p. ${a.page}` });
-      meta.createDiv({ text: a.color === "yellow" ? "Yellow" : "Red" });
-
-      const text = a.text?.trim();
-      if (text) {
-        card.createDiv({ cls: "pdfaw-comment-text", text });
-      }
-
-      const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
-      actions.createEl("button", { text: "Delete" })
-        .onclick = (e) => { e.stopPropagation(); this.deleteAnnotation(a.id); };
-    }
-  }
-
 
   private renderCommentsList() {
     this.sidebarEl.createEl("h3", { text: "Comments" });
