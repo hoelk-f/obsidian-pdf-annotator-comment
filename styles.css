@@ -41,6 +41,7 @@
   position: relative;
   margin: 0 auto 18px auto;
   box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  overflow: hidden;
 }
 
 .pdfaw-page canvas {
@@ -134,4 +135,22 @@
 }
 .pdfaw-textlayer ::selection {
   background: rgba(66, 165, 245, 0.35);
+}
+
+.pdfaw-selection {
+  position: absolute;
+  background: rgba(66, 165, 245, 0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.pdfaw-notes {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
 }

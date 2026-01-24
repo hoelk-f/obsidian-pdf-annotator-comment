@@ -40,6 +40,7 @@ type Sidecar = {
   pdfPath: string;
   version: 1;
   annotations: Annotation[];
+  notes?: string;
 };
 
 /* =========================
@@ -111,6 +112,7 @@ class PdfAnnotatorView extends FileView {
   private pageMeta = new Map<number, { page: any; viewport: any; rendered: boolean }>();
   private pageWraps = new Map<number, HTMLDivElement>();
   private overlays = new Map<number, HTMLDivElement>();
+  private selectionOverlayByPage = new Map<number, HTMLDivElement>();
   private observer: IntersectionObserver | null = null;
   private sidebarMode: "comments" | "highlights" = "comments";
 
@@ -184,6 +186,8 @@ class PdfAnnotatorView extends FileView {
     this.pageMeta.clear();
     this.pageWraps.clear();
     this.overlays.clear();
+    this.selectionOverlayByPage.clear();
+    this.selectionOverlayByPage.clear();
     this.observer?.disconnect();
     this.observer = null;
   }
@@ -202,6 +206,7 @@ class PdfAnnotatorView extends FileView {
       this.sidecar = { pdfPath: this.pdfPath, version: 1, annotations: [] };
       await this.app.vault.create(path, JSON.stringify(this.sidecar, null, 2));
     }
+    this.notesDraft = this.sidecar?.notes ?? "";
   }
 
   private async saveSidecar() {
@@ -225,6 +230,8 @@ class PdfAnnotatorView extends FileView {
     this.pageMeta.clear();
     this.pageWraps.clear();
     this.overlays.clear();
+    this.selectionOverlayByPage.clear();
+    this.selectionOverlayByPage.clear();
     this.observer?.disconnect();
     this.observer = null;
 
@@ -245,6 +252,7 @@ class PdfAnnotatorView extends FileView {
       const overlay = pageWrap.createDiv({ cls: "pdfaw-layer" });
       overlay.dataset.page = String(pageNum);
       this.overlays.set(pageNum, overlay);
+      this.selectionOverlayByPage.set(pageNum, overlay);
       this.renderHighlightsForPage(pageNum, overlay);
     }
 
@@ -328,6 +336,25 @@ class PdfAnnotatorView extends FileView {
       }
     }
   }
+  private clearSelectionOverlay() {
+    for (const [, overlay] of this.selectionOverlayByPage) {
+      overlay.querySelectorAll(".pdfaw-selection").forEach(el => el.remove());
+    }
+  }
+
+  private renderSelectionOverlay(pageNum: number, quads: Quad[]) {
+    const overlay = this.selectionOverlayByPage.get(pageNum);
+    if (!overlay) return;
+    this.clearSelectionOverlay();
+    for (const q of quads) {
+      const sel = overlay.createDiv({ cls: "pdfaw-selection" });
+      sel.style.left = `${q.x}px`;
+      sel.style.top = `${q.y}px`;
+      sel.style.width = `${q.w}px`;
+      sel.style.height = `${q.h}px`;
+    }
+  }
+
 
   /* =========================
      Selection + Context
@@ -366,6 +393,7 @@ class PdfAnnotatorView extends FileView {
     this.lastSelectionText = sel.toString().trim();
     this.lastSelectionQuadsByPage.clear();
     this.lastSelectionQuadsByPage.set(pageNum, quads);
+    this.renderSelectionOverlay(pageNum, quads);
   }
 
   private onContextMenu(ev: MouseEvent) {
@@ -439,25 +467,113 @@ class PdfAnnotatorView extends FileView {
     const tabs = this.sidebarEl.createDiv({ cls: "pdfaw-sidebar-tabs" });
     const commentsTab = tabs.createEl("button", { text: "Comments" });
     const highlightsTab = tabs.createEl("button", { text: "Highlights" });
+    const notesTab = tabs.createEl("button", { text: "Notes" });
 
-    const setMode = (mode: "comments" | "highlights") => {
+    const setMode = (mode: "comments" | "highlights" | "notes") => {
       this.sidebarMode = mode;
       commentsTab.classList.toggle("is-active", mode === "comments");
       highlightsTab.classList.toggle("is-active", mode === "highlights");
+      notesTab.classList.toggle("is-active", mode === "notes");
       this.renderSidebar();
     };
 
     commentsTab.onclick = () => setMode("comments");
     highlightsTab.onclick = () => setMode("highlights");
+    notesTab.onclick = () => setMode("notes");
     commentsTab.classList.toggle("is-active", this.sidebarMode === "comments");
     highlightsTab.classList.toggle("is-active", this.sidebarMode === "highlights");
+    notesTab.classList.toggle("is-active", this.sidebarMode === "notes");
 
     if (this.sidebarMode === "comments") {
       this.renderCommentsList();
-    } else {
+    } else if (this.sidebarMode === "highlights") {
       this.renderHighlightsList();
+    } else {
+      this.renderNotesTab();
     }
   }
+
+  private renderNotesTab() {
+    this.sidebarEl.createEl("h3", { text: "Notes" });
+    const textarea = this.sidebarEl.createEl("textarea", { cls: "pdfaw-notes" });
+    textarea.value = this.notesDraft;
+    textarea.placeholder = "Write notes for this PDF...";
+    textarea.addEventListener("input", () => {
+      this.notesDraft = textarea.value;
+      if (this.notesSaveTimer) window.clearTimeout(this.notesSaveTimer);
+      this.notesSaveTimer = window.setTimeout(async () => {
+        if (!this.sidecar) return;
+        this.sidecar.notes = this.notesDraft;
+        await this.saveSidecar();
+      }, 300);
+    });
+  }
+
+  private renderCommentsList() {
+    this.sidebarEl.createEl("h3", { text: "Comments" });
+
+    const annotations = [...(this.sidecar?.annotations ?? [])]
+      .filter(a => a.comment?.trim())
+      .sort((a, b) => {
+        if (a.page !== b.page) return a.page - b.page;
+        return a.createdAt - b.createdAt;
+      });
+
+    for (const a of annotations) {
+      const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
+      card.onclick = () => this.scrollToAnnotation(a.id);
+
+      const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
+      meta.createDiv({ text: `p. ${a.page}` });
+      meta.createDiv({ text: "Comment" });
+
+      const text = a.text?.trim();
+      if (text) {
+        card.createDiv({ cls: "pdfaw-comment-text", text });
+      }
+
+      card.createDiv({
+        cls: "pdfaw-comment-body",
+        text: a.comment?.trim() ? a.comment!.trim() : "No comment yet."
+      });
+
+      const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
+      actions.createEl("button", { text: "Edit" })
+        .onclick = (e) => { e.stopPropagation(); this.editComment(a.id); };
+      actions.createEl("button", { text: "Delete" })
+        .onclick = (e) => { e.stopPropagation(); this.deleteAnnotation(a.id); };
+    }
+  }
+
+  private renderHighlightsList() {
+    this.sidebarEl.createEl("h3", { text: "Highlights" });
+
+    const annotations = [...(this.sidecar?.annotations ?? [])]
+      .filter(a => !a.comment?.trim())
+      .sort((a, b) => {
+        if (a.page !== b.page) return a.page - b.page;
+        return a.createdAt - b.createdAt;
+      });
+
+    for (const a of annotations) {
+      const card = this.sidebarEl.createDiv({ cls: "pdfaw-comment-card" });
+      card.onclick = () => this.scrollToAnnotation(a.id);
+
+      const meta = card.createDiv({ cls: "pdfaw-comment-meta" });
+      meta.createDiv({ text: `p. ${a.page}` });
+      meta.createDiv({ text: a.color === "yellow" ? "Yellow" : "Red" });
+
+      const text = a.text?.trim();
+      if (text) {
+        card.createDiv({ cls: "pdfaw-comment-text", text });
+      }
+
+      const actions = card.createDiv({ cls: "pdfaw-comment-actions" });
+      actions.createEl("button", { text: "Delete" })
+        .onclick = (e) => { e.stopPropagation(); this.deleteAnnotation(a.id); };
+    }
+  }
+
 
   private renderCommentsList() {
     this.sidebarEl.createEl("h3", { text: "Comments" });
