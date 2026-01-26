@@ -3,7 +3,6 @@ import {
   Plugin,
   TFile,
   FileView,
-  Notice,
   Modal,
   Setting,
 } from "obsidian";
@@ -114,7 +113,9 @@ class PdfAnnotatorView extends FileView {
   private overlays = new Map<number, HTMLDivElement>();
   private selectionOverlayByPage = new Map<number, HTMLDivElement>();
   private observer: IntersectionObserver | null = null;
-  private sidebarMode: "comments" | "highlights" = "comments";
+  private sidebarMode: "comments" | "highlights" | "notes" = "comments";
+  private notesDraft = "";
+  private notesSaveTimer: number | null = null;
 
   private lastSelectionText = "";
   private lastSelectionQuadsByPage = new Map<number, Quad[]>();
@@ -187,7 +188,6 @@ class PdfAnnotatorView extends FileView {
     this.pageWraps.clear();
     this.overlays.clear();
     this.selectionOverlayByPage.clear();
-    this.selectionOverlayByPage.clear();
     this.observer?.disconnect();
     this.observer = null;
   }
@@ -230,7 +230,6 @@ class PdfAnnotatorView extends FileView {
     this.pageMeta.clear();
     this.pageWraps.clear();
     this.overlays.clear();
-    this.selectionOverlayByPage.clear();
     this.selectionOverlayByPage.clear();
     this.observer?.disconnect();
     this.observer = null;

@@ -1,27 +1,29 @@
 # obsidian-pdf-annotator-comment
 
-An Obsidian plugin that provides a custom PDF reader with a Word-style comment
-sidebar. It supports two highlight colors and lets you attach comments to text
-selections directly inside Obsidian.
+An Obsidian plugin that provides a custom PDF reader with a Word-style sidebar
+for comments, highlights, and notes. It uses a custom PDF view (PDF.js) and a
+sidecar JSON file stored next to each PDF.
 
 ## Features
 
-- Custom PDF view for `.pdf` files.
+- Custom PDF view for `.pdf` files (separate from Obsidian's native viewer).
 - Command to open the current PDF in the annotator view.
-- Text selection highlights in two colors (yellow, green).
-- Comment modal for selections, with a dedicated sidebar.
-- Edit/delete UI for annotations in the sidebar.
-- Simple JSON sidecar file stored next to each PDF.
+- Highlights with two colors: **Yellow** and **Red**.
+- Comments use **Blue** highlights and appear in the Comments tab.
+- Sidebar tabs: **Comments**, **Highlights**, **Notes**.
+- Click a sidebar item to jump to its position in the PDF.
+- Notes tab: free-form text saved per PDF.
+- Lazy rendering for better performance on large PDFs.
 
 ## How it works
 
-- The plugin registers a custom view type for PDFs.
-- Use the command palette action to open the current PDF in the annotator view.
-- Selections are captured from the invisible text layer of the rendered PDF.
+- The plugin registers a custom view type (not the default PDF view).
+- Use the command palette to open a PDF in the annotator view.
+- Selections are captured from the PDF.js text layer.
 - Highlights and comments are stored in a sidecar file:
   `<your-pdf>.obsidian-annot.json`.
-- The PDF is rendered using `pdfjs-dist`, with a local worker file inside the
-  plugin folder.
+- Notes are saved in the same sidecar file.
+- The PDF is rendered using `pdfjs-dist` with a local worker file in the plugin folder.
 
 ## Installation (manual)
 
@@ -44,9 +46,12 @@ selections directly inside Obsidian.
 3. Select text inside the PDF.
 4. Right-click to open the context menu:
    - Highlight (Yellow)
-   - Highlight (Green)
-   - Comment...
-5. All annotations appear in the right sidebar with edit/delete actions.
+   - Highlight (Red)
+   - Comment (Blue)...
+5. Use the sidebar tabs:
+   - **Comments**: blue comments only (edit/delete)
+   - **Highlights**: yellow/red highlights (delete)
+   - **Notes**: free-form notes for the PDF
 
 ## Data format
 
@@ -54,6 +59,7 @@ Sidecar file: `example.pdf.obsidian-annot.json`
 
 - `pdfPath`: the path to the PDF inside the vault
 - `annotations`: list of highlights/comments with page, quad bounds, and text
+- `notes`: free-form notes text (optional)
 
 This file is created automatically on first open.
 
