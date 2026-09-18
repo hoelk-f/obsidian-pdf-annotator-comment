@@ -13,6 +13,9 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 concurrency:
   group: release-${{ inputs.version || github.ref_name }}
@@ -38,11 +41,21 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:release
       - run: npm run test:browser
+      - run: npm run test:build
       - run: npm run package:release
+      - run: npm run check:build
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/remark-my-words/main.js
+            dist/remark-my-words/manifest.json
+            dist/remark-my-words/styles.css
       - name: Publish verified installable assets
         shell: bash
         env:

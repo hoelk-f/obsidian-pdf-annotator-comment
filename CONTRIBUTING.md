@@ -10,9 +10,11 @@ Use Node.js 22 or later, then run:
 
 ```sh
 npm ci
+npm run lint
 npm run typecheck
 npm test
 npm run test:browser
+npm run test:build
 npm run package:release
 ```
 

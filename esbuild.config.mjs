@@ -15,7 +15,7 @@ const ctx = await esbuild.context({
   minify: false,
   plugins: [pdfWorkerPlugin],
   legalComments: "inline",
-  banner: { js: `/*! Remark My Words\n${await readFile('LICENSE', 'utf8')}\nPDF.js is distributed under the following license:\n${await readFile('node_modules/pdfjs-dist/LICENSE', 'utf8')}\n*/` },
+  banner: { js: `/*! Remark My Words\n${(await readFile('LICENSE', 'utf8')).replace(/\r\n/g, '\n')}\nPDF.js is distributed under the following license:\n${(await readFile('node_modules/pdfjs-dist/LICENSE', 'utf8')).replace(/\r\n/g, '\n')}\n*/` },
   external: ["obsidian"],
   logLevel: "info",
 });

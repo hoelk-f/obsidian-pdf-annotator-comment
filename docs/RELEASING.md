@@ -19,10 +19,10 @@ The script:
 1. Checks the branch, repository URL, Git identity, and unfinished Git operations.
 2. Fetches the remote. If necessary, checkpoints local work and merges `origin/main`. Conflicts stop the release without pushing; the checkpoint preserves local work.
 3. Updates `package.json`, `package-lock.json`, `manifest.json`, `versions.json`, and the changelog. Add release details under `## Unreleased` beforehand; otherwise a version entry links readers to the generated GitHub notes.
-4. Installs locked dependencies, runs typechecking, model tests, release integration tests, browser tests, and the production build.
+4. Installs locked dependencies, runs the official Obsidian linter, typechecking, model tests, release integration tests, browser tests, reproducibility tests, and the production build.
 5. Commits the result and creates an annotated tag matching the manifest version, with no `v` prefix.
 6. Pushes `main` and the tag atomically, so either both remote refs update or neither does.
-7. Waits for the **Publish release** GitHub Action to repeat the checks and publish `main.js`, `manifest.json`, and `styles.css`. The Action uploads and checks all assets before making the release public.
+7. Waits for the **Publish release** GitHub Action to repeat the checks and publish `main.js`, `manifest.json`, and `styles.css`. The Action verifies that the build matches committed main.js, creates GitHub provenance attestations, and uploads and checks all assets before making the release public.
 8. Prints the published release URL and the Obsidian Community submission link.
 
 No local GitHub CLI or personal access token is required. Git uses your existing

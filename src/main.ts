@@ -263,7 +263,7 @@ export class PdfAnnotatorView extends FileView {
       // A local Blob uses the bundled worker with no network or extra asset.
       this.workerUrl ??= URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
       pdfjs.GlobalWorkerOptions.workerSrc = this.workerUrl;
-      this.loading = pdfjs.getDocument({ data: buffer });
+      this.loading = pdfjs.getDocument({ data: buffer, isEvalSupported: false });
       const pdf = await this.loading.promise;
       if (generation !== this.generation) { void pdf.destroy(); return; }
       this.pdf = pdf; this.sidecar = data;
@@ -325,7 +325,7 @@ export class PdfAnnotatorView extends FileView {
   private async renderCanvas(page: pdfjs.PDFPageProxy, canvas: HTMLCanvasElement, scale: number, density: number, main = false) {
     const viewport = page.getViewport({ scale });
     canvas.width = Math.ceil(viewport.width * density); canvas.height = Math.ceil(viewport.height * density);
-    canvas.style.width = `${viewport.width}px`; canvas.style.height = `${viewport.height}px`;
+    canvas.setCssProps({ "--canvas-width": `${viewport.width}px`, "--canvas-height": `${viewport.height}px` });
     const context = canvas.getContext("2d"); if (!context) throw new Error("Canvas unavailable.");
     const task = page.render({ canvasContext: context, viewport, transform: density === 1 ? undefined : [density, 0, 0, density, 0, 0] });
     if (main) this.pageTask = task;
@@ -599,8 +599,6 @@ export class PdfAnnotatorView extends FileView {
     this.viewport.scrollTo(0, 0);
     if (mode === "reading") this.fit();
     else {
-      this.stage.style.width = ""; this.stage.style.height = ""; this.stage.style.margin = "";
-      this.pageEl.style.transform = "";
       if (this.canvasCamera) { this.camera = this.canvasCamera; this.applyCamera(); } else this.fit();
     }
   }
@@ -627,13 +625,11 @@ export class PdfAnnotatorView extends FileView {
     this.commentPreview.hide();
     const { x, y, zoom } = this.camera;
     if (this.mode === "reading") {
-      this.stage.style.transform = "none";
-      this.stage.style.width = `${this.pageWidth * zoom}px`; this.stage.style.height = `${this.pageHeight * zoom}px`;
-      this.stage.style.margin = "24px auto";
-      this.pageEl.style.transform = `scale(${zoom})`;
+      this.stage.setCssProps({ "--reading-width": `${this.pageWidth * zoom}px`, "--reading-height": `${this.pageHeight * zoom}px` });
+      this.pageEl.setCssProps({ "--reading-transform": `scale(${zoom})` });
       this.zoomLabel.setText(`${Math.round(zoom * 100)} %`); this.positionSelectionBar(); return;
     }
-    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+    this.stage.setCssProps({ "--canvas-transform": `translate(${x}px, ${y}px) scale(${zoom})` });
     this.viewport.style.backgroundPosition = `${x}px ${y}px`; this.viewport.style.backgroundSize = `${22 * zoom}px ${22 * zoom}px`;
     this.zoomLabel.setText(`${Math.round(zoom * 100)} %`); this.positionSelectionBar(); this.queueGeometry();
   }
@@ -707,7 +703,7 @@ export class PdfAnnotatorView extends FileView {
 export default class RemarkMyWordsPlugin extends Plugin {
   async onload() {
     this.registerView(VIEW_TYPE, leaf => new PdfAnnotatorView(leaf));
-    this.addCommand({ id: "open-pdf-in-annotator", name: "Open PDF in Remark My Words", checkCallback: checking => {
+    this.addCommand({ id: "open-pdf-in-annotator", name: "Open PDF", checkCallback: checking => {
       const file = this.app.workspace.getActiveFile();
       if (!file || file.extension.toLowerCase() !== "pdf") return false;
       if (!checking) void this.app.workspace.getLeaf(false).setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });

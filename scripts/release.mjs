@@ -175,7 +175,7 @@ export async function runRelease(options, { root = fileURLToPath(new URL('../', 
   io.npm('version', version, '--no-git-tag-version', '--allow-same-version');
   await updateChangelog(root, version);
   io.npm('ci', '--no-audit', '--no-fund');
-  for (const script of ['typecheck', 'test', 'test:release', 'test:browser', 'package:release']) io.npm('run', script);
+  for (const script of ['lint', 'typecheck', 'test', 'test:release', 'test:browser', 'test:build', 'package:release']) io.npm('run', script);
   io.gitRun('add', '--all');
   if (io.git('diff', '--cached', '--name-only')) io.gitRun('commit', '-m', `Release ${version}`);
   const sha = io.git('rev-parse', 'HEAD');

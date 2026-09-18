@@ -5,9 +5,11 @@ Use Node.js 22 or later. Dependency versions are pinned in `package.json` and
 
 ```sh
 npm ci
+npm run lint
 npm run typecheck
 npm test
 npm run test:browser
+npm run test:build
 npm run package:release
 ```
 
@@ -74,3 +76,22 @@ flushed before switching documents or closing the view.
 
 Concurrent changes from multiple views are not merged. Do not run both the old
 development plugin and Remark My Words against the same documents.
+
+## Review and reproducible builds
+
+`npm run lint` uses the official Obsidian recommended rules with typed analysis.
+The plugin name is registered as a proper brand for sentence-case checks. The
+scoped npm override makes the linter use this project's pinned Obsidian types
+instead of its older exact peer version.
+
+`npm run test:build` builds in two independent temporary checkouts, including
+different license line endings, and compares output bytes. The embedded worker
+uses a stable virtual module ID, so local filesystem paths do not enter the
+bundle. `npm run check:build` compares a fresh build with committed `main.js`;
+CI runs this on both Windows and Linux. Commit the rebuilt bundle with source
+changes. The release workflow attests all three installable assets before
+publishing them.
+
+PDF.js includes dynamic-code capability checks in its distributed source. We
+set `isEvalSupported: false` when loading PDFs to disable optional eval-based
+rendering optimizations. Static scanners may still flag the dependency code.

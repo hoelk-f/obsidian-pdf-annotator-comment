@@ -32,7 +32,7 @@ export class CommentModal extends Modal {
     const tagsHeading = tagsField.createDiv({ cls: "pdfaw-field-heading" });
     tagsHeading.createEl("label", { text: "Tags", attr: { for: `${fieldId}-tags` } });
     tagsHeading.createSpan({ cls: "pdfaw-field-hint", text: "Separate with commas", attr: { id: `${fieldId}-tags-hint` } });
-    const tags = tagsField.createEl("input", { attr: { id: `${fieldId}-tags`, type: "text", placeholder: "Method, Research", "aria-describedby": `${fieldId}-tags-hint` } });
+    const tags = tagsField.createEl("input", { attr: { id: `${fieldId}-tags`, type: "text", placeholder: "Method, research", "aria-describedby": `${fieldId}-tags-hint` } });
     tags.value = draft.tags?.join(", ") ?? "";
     tags.oninput = () => { draft.tags = [...new Set(tags.value.split(",").map(tag => tag.trim()).filter(Boolean))]; };
     const save = () => {

@@ -47,3 +47,7 @@ for (const box of [{ x: 0, y: 0, width: 800, height: 1100 }, ...cards]) {
 assert.ok(defaultPosition(0, 800).x < 0);
 assert.ok(defaultPosition(1, 800).x > 800);
 console.log('PASS: legacy migration, roundtrip, invalid data protection, connector anchors and camera bounds');
+
+for (const changes of [{ page: "2" }, { category: {} }, { tags: [42] }, { quads: [null] }, { quads: [{x: 1, y: 2, w: -1, h: 2}] }, { position: [] }, { title: 7 }]) {
+  assert.throws(() => readSidecar(JSON.stringify({ ...original, annotations: [{ ...annotation, ...changes }] }), "test.pdf"));
+}

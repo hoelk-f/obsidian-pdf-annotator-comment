@@ -1,6 +1,6 @@
 {
   "name": "remark-my-words",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,12 +14,20 @@
     "version": "node scripts/version.mjs",
     "release": "node scripts/release.mjs",
     "test:release": "node --test tests/release.test.mjs",
-    "release:preview": "node scripts/release.mjs --dry-run"
+    "release:preview": "node scripts/release.mjs --dry-run",
+    "lint": "eslint src --max-warnings=0",
+    "test:build": "node tests/build.test.mjs",
+    "check:build": "node scripts/check-build.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@eslint/json": "0.14.0",
     "esbuild": "0.23.1",
+    "eslint": "9.39.5",
+    "eslint-plugin-obsidianmd": "0.4.2",
+    "obsidian": "1.11.4",
     "typescript": "5.9.3",
-    "obsidian": "1.11.4"
+    "typescript-eslint": "8.70.0"
   },
   "dependencies": {
     "pdfjs-dist": "4.10.38"
@@ -37,5 +45,10 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "overrides": {
+    "eslint-plugin-obsidianmd": {
+      "obsidian": "$obsidian"
+    }
   }
 }

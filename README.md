@@ -60,7 +60,7 @@ Copy the contents of `dist/remark-my-words/` into the plugin folder above.
 ## Get started
 
 1. Open a PDF in your vault.
-2. Run **Open PDF in Remark My Words** from the command palette, or choose **Open in Remark My Words** from the PDF's file menu.
+2. Run **Remark My Words: Open PDF** from the command palette, or choose **Open in Remark My Words** from the PDF's file menu.
 3. Use the **book** icon for Reading or the **dashboard** icon for Canvas. Tooltips identify each control.
 4. Select text, click a category in the floating toolbar, and fill in **Add comment**. Right-clicking selected text also offers categories.
 5. In Reading, hover a highlighted passage to read its comment. The **Read page comments** button also works with a keyboard or touch input.

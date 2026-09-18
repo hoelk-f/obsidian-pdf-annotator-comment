@@ -80,7 +80,7 @@ test('first release and automatic patch include work and push matching annotated
   assert.equal(git(f.root, 'cat-file', '-t', '0.1.0'), 'tag');
   assert.equal(git(f.remote, 'show', 'main:sample.txt'), 'ready');
   assert.equal(git(f.root, 'status', '--porcelain'), '');
-  assert.deepEqual(f.calls.filter(args => args[0] === 'run').map(args => args[1]), ['typecheck', 'test', 'test:release', 'test:browser', 'package:release']);
+  assert.deepEqual(f.calls.filter(args => args[0] === 'run').map(args => args[1]), ['lint', 'typecheck', 'test', 'test:release', 'test:browser', 'test:build', 'package:release']);
   assert.match(readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8'), /## 0\.1\.0 — \d{4}-\d{2}-\d{2}/);
   assert.equal((await runRelease(parseArgs([]), f.deps)).version, '0.1.1');
   assert.equal(json(path.join(f.root, 'package.json')).version, '0.1.1');

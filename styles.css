@@ -1,4 +1,4 @@
-.pdfaw-content { padding: 0 !important; overflow: hidden !important; }
+.workspace-leaf-content .view-content.pdfaw-content, .pdfaw-content.pdfaw-content { padding: 0; overflow: hidden; }
 .pdfaw-root {
   position: relative;
   --pdfaw-bg: #181c20; --pdfaw-panel: #1c2025; --pdfaw-border: #30363f;
@@ -28,7 +28,7 @@
 .pdfaw-root .pdfaw-icon-button:hover { background: #303640; color: #fff; }
 .pdfaw-root .pdfaw-icon-button.is-active { border-color: #8e80db; background: #36304d; color: #e2dbff; }
 .pdfaw-toolbar-end { margin-left: auto; }
-.pdfaw-zoom-label { min-width: 55px; padding: 3px; background: transparent !important; border: 0; }
+.pdfaw-root button.pdfaw-zoom-label { min-width: 55px; padding: 3px; background: transparent; border: 0; }
 .pdfaw-navigation input { width: 38px; padding: 0; border: 0; background: transparent; color: var(--pdfaw-text); text-align: center; box-shadow: none; appearance: textfield; }
 .pdfaw-navigation input::-webkit-inner-spin-button { appearance: none; }
 .pdfaw-navigation > span { white-space: nowrap; color: var(--pdfaw-muted); padding-right: 5px; }
@@ -41,11 +41,12 @@
 .pdfaw-root .pdfaw-thumbnail.is-active { border-color: #a08beb; background: #2c2b3b; box-shadow: 0 0 0 1px #a08beb25; }
 .pdfaw-thumbnail-paper { display: flex; align-items: center; justify-content: center; width: 104px; min-height: 146px; pointer-events: none; }
 .pdfaw-thumbnail-paper:empty { background: #323841; }
+.pdfaw-root canvas { width: var(--canvas-width); height: var(--canvas-height); }
 .pdfaw-thumbnail canvas { display: block; box-shadow: 0 2px 7px #0006; }
 .pdfaw-thumbnail > span { font-size: 11px; color: #ccd2dd; }
 .pdfaw-hide-pages .pdfaw-pages { display: none; }
 .pdfaw-viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; isolation: isolate; background-color: #181c20; background-image: radial-gradient(circle, #5b64764d 0.8px, transparent 0.9px); background-size: 22px 22px; touch-action: none; }
-.pdfaw-stage { position: absolute; top: 0; left: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+.pdfaw-stage { position: absolute; top: 0; left: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; transform: var(--canvas-transform); }
 .pdfaw-page { position: absolute; top: 0; left: 0; width: 804px; height: 1137px; background: #fff; color: #222; box-shadow: 0 0 0 14px #ffffff04, 0 12px 50px #0007; overflow: hidden; }
 .pdfaw-page > canvas { display: block; position: absolute; inset: 0; }
 .pdfaw-loading { padding: 70px 35px; font-size: 18px; color: #5c6070; }
@@ -83,7 +84,7 @@
 .pdfaw-filters button { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border: 0; border-radius: 5px; background: transparent; color: #abb5c4; font-size: 11px; white-space: nowrap; height: 26px; }
 .pdfaw-filters button:hover, .pdfaw-filters button.is-active { color: #f4f3ff; background: #ffffff0e; }
 .pdfaw-category-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--category); flex-shrink: 0; }
-.pdfaw-root [hidden] { display: none !important; }
+.pdfaw-root [hidden][hidden] { display: none; }
 .pdfaw-selection-toolbar { position: absolute; display: flex; padding: 5px; border: 1px solid #555363; background: #252830; border-radius: 8px; box-shadow: 0 4px 18px #0007; z-index: 15; }
 .pdfaw-selection-toolbar .pdfaw-icon-button { color: var(--category); }
 /* Composite the whole selection once, so even intersecting glyph boxes cannot
@@ -104,8 +105,8 @@
 .pdfaw-root .pdfaw-read-comments { display: none; }
 .pdfaw-reading .pdfaw-read-comments { display: inline-flex; }
 .pdfaw-reading .pdfaw-viewport { overflow: auto; background-image: none; touch-action: pan-x pan-y; }
-.pdfaw-reading .pdfaw-stage { position: relative; flex-shrink: 0; will-change: auto; }
-.pdfaw-reading .pdfaw-page { transform-origin: 0 0; }
+.pdfaw-reading .pdfaw-stage { position: relative; flex-shrink: 0; will-change: auto; transform: none; margin: 24px auto; width: var(--reading-width); height: var(--reading-height); }
+.pdfaw-reading .pdfaw-page { transform-origin: 0 0; transform: var(--reading-transform); }
 .pdfaw-reading .pdfaw-cards, .pdfaw-reading .pdfaw-connections,
 .pdfaw-reading .pdfaw-minimap, .pdfaw-reading .pdfaw-filters,
 .pdfaw-reading .pdfaw-footer-help { display: none; }
@@ -115,7 +116,7 @@
   .pdfaw-search input { flex: 1; min-width: 0; }
   .pdfaw-root .pdfaw-pages { flex-basis: 80px; }
   .pdfaw-thumbnail-paper { width: 52px; min-height: 74px; overflow: hidden; }
-  .pdfaw-thumbnail-paper canvas { max-width: 52px; height: auto !important; }
+  .pdfaw-thumbnail-paper canvas { max-width: 52px; height: auto; }
   .pdfaw-show-notes .pdfaw-notes-panel { position: absolute; right: 0; top: 140px; bottom: 30px; width: min(260px, 100%); z-index: 20; }
 }
 .pdfaw-minimap { position: absolute; right: 14px; bottom: 14px; width: 173px; padding: 9px 8px 4px; border: 1px solid #3a424e; border-radius: 10px; background: #191d22ee; box-shadow: 0 4px 20px #0004; z-index: 10; }
@@ -125,7 +126,7 @@
 .pdfaw-map-tools .pdfaw-icon-button { width: 24px; min-width: 24px; height: 26px; padding: 4px; }
 .pdfaw-hand .pdfaw-viewport, .pdfaw-hand .pdfaw-page { cursor: grab; }
 .pdfaw-hand .pdfaw-textlayer { pointer-events: none; user-select: none; }
-.pdfaw-viewport.is-panning, .pdfaw-viewport.is-panning * { cursor: grabbing !important; }
+.pdfaw-root .pdfaw-viewport.is-panning, .pdfaw-root .pdfaw-viewport.is-panning * { cursor: grabbing; }
 .pdfaw-notes-panel { display: none; flex: 0 0 260px; border-left: 1px solid var(--pdfaw-border); background: var(--pdfaw-panel); }
 .pdfaw-show-notes .pdfaw-notes-panel { display: flex; flex-direction: column; }
 .pdfaw-notes-panel textarea { resize: none; flex: 1; margin: 0 12px 12px; padding: 12px; background: #171b20; border: 1px solid var(--pdfaw-border); color: var(--pdfaw-text); line-height: 1.6; }

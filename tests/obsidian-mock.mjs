@@ -8,6 +8,7 @@ function createEl(tag, options = {}) {
   this.appendChild(element); return element;
 }
 Object.assign(Element.prototype, {
+  setCssProps(props) { for (const [key, value] of Object.entries(props)) this.style.setProperty(key, value); },
   createEl, createDiv(options) { return createEl.call(this, 'div', options); },
   createSpan(options) { return createEl.call(this, 'span', options); },
   empty() { this.replaceChildren(); }, setText(text) { this.textContent = text; },

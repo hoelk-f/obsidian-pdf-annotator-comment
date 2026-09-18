@@ -8,11 +8,11 @@ export const pdfWorkerPlugin = {
   name: 'embedded-pdf-worker',
   setup(build) {
     build.onResolve({ filter: /^embedded-pdf-worker$/ }, () => ({
-      path: require.resolve('pdfjs-dist/build/pdf.worker.min.mjs'), namespace: 'pdf-worker-source',
+      path: 'pdf.worker.min.mjs', namespace: 'pdf-worker-source',
     }));
     // https://esbuild.github.io/plugins/#on-load-callbacks
-    build.onLoad({ filter: /.*/, namespace: 'pdf-worker-source' }, async ({ path }) => ({
-      contents: await readFile(path, 'utf8'), loader: 'text',
+    build.onLoad({ filter: /.*/, namespace: 'pdf-worker-source' }, async () => ({
+      contents: await readFile(require.resolve('pdfjs-dist/build/pdf.worker.min.mjs'), 'utf8'), loader: 'text',
     }));
   },
 };

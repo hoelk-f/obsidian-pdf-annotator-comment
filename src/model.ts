@@ -34,32 +34,41 @@ export type Sidecar = {
 };
 export type Bounds = { x: number; y: number; width: number; height: number };
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
-const point = (p: any): p is Point => p && finite(p.x) && finite(p.y);
+const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const point = (value: unknown): value is Point => record(value) && finite(value.x) && finite(value.y);
+const quad = (value: unknown): value is Quad => record(value) && finite(value.x) && finite(value.y) && finite(value.w) && finite(value.h) && value.w > 0 && value.h > 0;
+const unknownArray = (value: unknown): value is unknown[] => Array.isArray(value);
+const stringArray = (value: unknown): value is string[] => unknownArray(value) && value.every(item => typeof item === "string");
+const categoryKey = (value: unknown): value is Category => typeof value === "string" && Object.prototype.hasOwnProperty.call(CATEGORIES, value);
 
 /** Reject invalid files rather than silently discarding annotations on the next save. */
 export function readSidecar(raw: string, pdfPath: string): Sidecar {
-  const data = JSON.parse(raw);
-  if (!data || ![1, 2].includes(data.version) || !Array.isArray(data.annotations) ||
+  const data: unknown = JSON.parse(raw);
+  if (!record(data) || (data.version !== 1 && data.version !== 2) || !unknownArray(data.annotations) ||
       (data.notes !== undefined && typeof data.notes !== "string")) {
     throw new Error("Unknown or damaged annotation format.");
   }
   const legacy: Record<string, Category> = { red: "limitation", yellow: "note", green: "evidence", blue: "method", orange: "note", purple: "evidence" };
   const oldCategories: Record<string, Category> = { criticism: "limitation", question: "note", positive: "evidence", unclear: "note", literature: "evidence" };
   const ids = new Set<string>();
-  const annotations = data.annotations.map((a: any): Annotation => {
-    if (!a || typeof a.id !== "string" || ids.has(a.id) || !Number.isInteger(a.page) || a.page < 1 ||
-        !Array.isArray(a.quads) || !a.quads.length || !a.quads.every((q: any) => finite(q?.x) && finite(q?.y) && finite(q.w) && finite(q.h) && q.w > 0 && q.h > 0) ||
+  const annotations = data.annotations.map((a): Annotation => {
+    if (!record(a) || typeof a.id !== "string" || ids.has(a.id) || !finite(a.page) || !Number.isInteger(a.page) || a.page < 1 ||
+        !unknownArray(a.quads) || !a.quads.length || !a.quads.every(quad) ||
         typeof a.text !== "string" || !finite(a.createdAt) || !finite(a.updatedAt) ||
         (a.position !== undefined && !point(a.position)) ||
         (a.title !== undefined && typeof a.title !== "string") ||
         (a.comment !== undefined && typeof a.comment !== "string") ||
-        (a.tags !== undefined && (!Array.isArray(a.tags) || !a.tags.every((t: unknown) => typeof t === "string")))) {
+        (a.tags !== undefined && !stringArray(a.tags))) {
       throw new Error("An annotation contains invalid data.");
     }
     ids.add(a.id);
-    if (a.category !== undefined && !Object.prototype.hasOwnProperty.call(CATEGORIES, a.category) && !Object.prototype.hasOwnProperty.call(oldCategories, a.category)) throw new Error("Unknown category.");
-    const category: Category = Object.prototype.hasOwnProperty.call(oldCategories, a.category) ? oldCategories[a.category] : a.category ?? (Object.prototype.hasOwnProperty.call(legacy, a.color) ? legacy[a.color] : "note");
-    return { ...a, category, color: CATEGORIES[category].color };
+    let category: Category;
+    if (categoryKey(a.category)) category = a.category;
+    else if (typeof a.category === "string" && Object.prototype.hasOwnProperty.call(oldCategories, a.category)) category = oldCategories[a.category];
+    else if (a.category !== undefined) throw new Error("Unknown category.");
+    else category = typeof a.color === "string" && Object.prototype.hasOwnProperty.call(legacy, a.color) ? legacy[a.color] : "note";
+    return { ...a, id: a.id, page: a.page, text: a.text, quads: a.quads, createdAt: a.createdAt, updatedAt: a.updatedAt,
+      position: a.position, title: a.title, comment: a.comment, tags: a.tags, category, color: CATEGORIES[category].color };
   });
   return { ...data, pdfPath, version: 2, annotations, notes: data.notes ?? "" };
 }
