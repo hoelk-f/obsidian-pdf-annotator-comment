@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 — 2026-09-18
+
+- See the GitHub release notes for the included changes.
+
 ## 0.1.1 — 2026-09-18
 - Fix Community review errors by moving reading/canvas layout styles into CSS classes and custom properties.
 - Validate annotation JSON with explicit types while preserving legacy migration and unknown stored fields.
