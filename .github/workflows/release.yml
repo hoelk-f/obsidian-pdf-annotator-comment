@@ -1,0 +1,54 @@
+﻿name: Publish release
+
+on:
+  push:
+    tags: ['*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:release
+      - run: npm run test:browser
+      - run: npm run package:release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+      - name: Publish verified installable assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json isDraft > release-state.json; then
+            if jq -e '.isDraft == false' release-state.json > /dev/null; then
+              echo "Release is already public; published assets will not be overwritten."
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "Remark My Words $RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" \
+            dist/remark-my-words/main.js \
+            dist/remark-my-words/manifest.json \
+            dist/remark-my-words/styles.css --clobber
+          gh release view "$RELEASE_TAG" --json assets | jq -e '
+            [.assets[] | select(.state == "uploaded" and .size > 0) | .name] as $names |
+            ["main.js", "manifest.json", "styles.css"] | all(. as $name | $names | index($name) != null)'
+          gh release edit "$RELEASE_TAG" --draft=false --latest

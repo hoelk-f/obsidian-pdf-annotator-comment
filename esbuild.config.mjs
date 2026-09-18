@@ -1,5 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
+import { readFile } from "node:fs/promises";
+import { pdfWorkerPlugin } from "./scripts/pdf-worker-plugin.mjs";
 
 const prod = process.env.NODE_ENV === "production";
 
@@ -10,7 +12,10 @@ const ctx = await esbuild.context({
   target: "es2020",
   outfile: "main.js",
   sourcemap: prod ? false : "inline",
-  minify: prod,
+  minify: false,
+  plugins: [pdfWorkerPlugin],
+  legalComments: "inline",
+  banner: { js: `/*! Remark My Words\n${await readFile('LICENSE', 'utf8')}\nPDF.js is distributed under the following license:\n${await readFile('node_modules/pdfjs-dist/LICENSE', 'utf8')}\n*/` },
   external: ["obsidian"],
   logLevel: "info",
 });

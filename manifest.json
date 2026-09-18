@@ -1,10 +1,10 @@
 {
-  "id": "obsidian-pdf-annotator-comment",
-  "name": "obsidian-pdf-annotator-comment",
+  "id": "remark-my-words",
+  "name": "Remark My Words",
   "version": "0.1.0",
-  "minAppVersion": "1.4.0",
-  "description": "A PDF canvas with movable, color-classified comments, linked text highlights, page previews and document notes.",
-  "author": "You",
-  "authorUrl": "",
-  "isDesktopOnly": false
+  "minAppVersion": "1.13.7",
+  "description": "Annotate PDF passages with categorized comments and arrange connected notes on a visual canvas.",
+  "author": "Florian Hölken",
+  "authorUrl": "https://github.com/hoelk-f",
+  "isDesktopOnly": true
 }

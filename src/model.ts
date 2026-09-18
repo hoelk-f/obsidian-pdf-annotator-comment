@@ -2,12 +2,12 @@
 export const PDF_SCALE = 1.35;
 export const CARD_WIDTH = 370;
 export const CATEGORIES = {
-  criticism: { label: "Kritik", color: "red", hex: "#ff657e", icon: "circle-alert" },
-  question: { label: "Frage", color: "orange", hex: "#ff9656", icon: "circle-help" },
-  positive: { label: "Positiv", color: "green", hex: "#54df94", icon: "thumbs-up" },
-  unclear: { label: "Unklar", color: "yellow", hex: "#f4d653", icon: "circle-help" },
-  literature: { label: "Literatur", color: "purple", hex: "#bd83f5", icon: "book-open" },
-  method: { label: "Methode", color: "blue", hex: "#54b5ff", icon: "settings-2" },
+  claim: { label: "Claim", color: "orange", hex: "#ff9656", icon: "quote" },
+  evidence: { label: "Evidence", color: "green", hex: "#54df94", icon: "check-check" },
+  method: { label: "Method", color: "blue", hex: "#54b5ff", icon: "settings-2" },
+  concept: { label: "Concept", color: "purple", hex: "#bd83f5", icon: "book-open" },
+  limitation: { label: "Limitation", color: "red", hex: "#ff657e", icon: "circle-alert" },
+  note: { label: "Note", color: "yellow", hex: "#f4d653", icon: "sticky-note" },
 } as const;
 export type Category = keyof typeof CATEGORIES;
 export type Point = { x: number; y: number };
@@ -41,9 +41,10 @@ export function readSidecar(raw: string, pdfPath: string): Sidecar {
   const data = JSON.parse(raw);
   if (!data || ![1, 2].includes(data.version) || !Array.isArray(data.annotations) ||
       (data.notes !== undefined && typeof data.notes !== "string")) {
-    throw new Error("Unbekanntes oder beschädigtes Annotationsformat.");
+    throw new Error("Unknown or damaged annotation format.");
   }
-  const legacy: Record<string, Category> = { red: "criticism", yellow: "unclear", green: "positive", blue: "method", orange: "question", purple: "literature" };
+  const legacy: Record<string, Category> = { red: "limitation", yellow: "note", green: "evidence", blue: "method", orange: "note", purple: "evidence" };
+  const oldCategories: Record<string, Category> = { criticism: "limitation", question: "note", positive: "evidence", unclear: "note", literature: "evidence" };
   const ids = new Set<string>();
   const annotations = data.annotations.map((a: any): Annotation => {
     if (!a || typeof a.id !== "string" || ids.has(a.id) || !Number.isInteger(a.page) || a.page < 1 ||
@@ -53,11 +54,11 @@ export function readSidecar(raw: string, pdfPath: string): Sidecar {
         (a.title !== undefined && typeof a.title !== "string") ||
         (a.comment !== undefined && typeof a.comment !== "string") ||
         (a.tags !== undefined && (!Array.isArray(a.tags) || !a.tags.every((t: unknown) => typeof t === "string")))) {
-      throw new Error("Eine Annotation enthält ungültige Daten.");
+      throw new Error("An annotation contains invalid data.");
     }
     ids.add(a.id);
-    if (a.category !== undefined && !Object.prototype.hasOwnProperty.call(CATEGORIES, a.category)) throw new Error("Unbekannte Kategorie.");
-    const category: Category = a.category ?? legacy[a.color] ?? "method";
+    if (a.category !== undefined && !Object.prototype.hasOwnProperty.call(CATEGORIES, a.category) && !Object.prototype.hasOwnProperty.call(oldCategories, a.category)) throw new Error("Unknown category.");
+    const category: Category = Object.prototype.hasOwnProperty.call(oldCategories, a.category) ? oldCategories[a.category] : a.category ?? (Object.prototype.hasOwnProperty.call(legacy, a.color) ? legacy[a.color] : "note");
     return { ...a, category, color: CATEGORIES[category].color };
   });
   return { ...data, pdfPath, version: 2, annotations, notes: data.notes ?? "" };

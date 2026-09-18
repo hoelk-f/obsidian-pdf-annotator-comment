@@ -1,22 +1,41 @@
 {
-  "name": "obsidian-pdf-annotator-comment",
+  "name": "remark-my-words",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "copy node_modules\\pdfjs-dist\\build\\pdf.worker.min.mjs .\\pdf.worker.min.mjs",
     "dev": "node esbuild.config.mjs",
     "build": "node -e \"process.env.NODE_ENV='production'; import('./esbuild.config.mjs')\"",
     "typecheck": "tsc --noEmit",
     "test": "node tests/model.test.mjs",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "package:release": "npm run build && npm run check:release && node scripts/package-release.mjs",
+    "version": "node scripts/version.mjs",
+    "release": "node scripts/release.mjs",
+    "test:release": "node --test tests/release.test.mjs",
+    "release:preview": "node scripts/release.mjs --dry-run"
   },
   "devDependencies": {
-    "esbuild": "^0.23.0",
-    "typescript": "^5.5.4",
-    "obsidian": "latest"
+    "esbuild": "0.23.1",
+    "typescript": "5.9.3",
+    "obsidian": "1.11.4"
   },
   "dependencies": {
-    "pdfjs-dist": "^4.6.82"
+    "pdfjs-dist": "4.10.38"
+  },
+  "description": "Read, annotate, and connect PDF passages on a visual canvas in Obsidian.",
+  "author": "Florian Hölken",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hoelk-f/remark-my-words.git"
+  },
+  "homepage": "https://github.com/hoelk-f/remark-my-words#readme",
+  "bugs": {
+    "url": "https://github.com/hoelk-f/remark-my-words/issues"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

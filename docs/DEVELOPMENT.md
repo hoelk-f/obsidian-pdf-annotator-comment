@@ -1,0 +1,76 @@
+# Development
+
+Use Node.js 22 or later. Dependency versions are pinned in `package.json` and
+`package-lock.json`; use `npm ci` for a reproducible installation.
+
+```sh
+npm ci
+npm run typecheck
+npm test
+npm run test:browser
+npm run package:release
+```
+
+`npm run dev` watches source changes. `npm run build` generates `main.js`.
+`npm run package:release` builds, validates metadata, and copies the three
+installable files into `dist/remark-my-words/`. No npm publication is needed.
+
+## Architecture
+
+- `src/main.ts`: Obsidian file view, PDF rendering, canvas camera, interactions, and serialized saves.
+- `src/model.ts`: categories, sidecar validation and migration, canvas geometry.
+- `src/selection.ts`: selection geometry from PDF text nodes.
+- `src/editor.ts`: comment form.
+- `src/comment-preview.ts`: Reading-mode previews.
+- `styles.css`: plugin-scoped styles.
+- `scripts/pdf-worker-plugin.mjs`: embeds the matching PDF.js worker as text at build time.
+- `tests/`: model and browser integration tests.
+
+PDF coordinates use a fixed scale of 1.35. Camera zoom is separate, so changing
+the display does not change saved highlights or card positions. Rendering tasks
+are canceled when pages or documents change. Each view creates a local Blob URL
+for the bundled worker and revokes it when the view closes.
+
+`pdfaw-view` and CSS class prefixes remain stable internal identifiers. They are
+not the public plugin ID, which is `remark-my-words`.
+
+## Browser tests
+
+`npm run test:browser` starts a local HTTP server and a headless Chromium browser.
+By default it uses Microsoft Edge at its standard Windows path. Set `BROWSER_PATH`
+to another Chromium executable on macOS or Linux. The test uses a generated PDF,
+real PDF.js rendering, and a mocked Obsidian API and in-memory vault.
+
+It covers live selection, comments, previews, category changes, dragging at zoom,
+Reading/Canvas switching, persistence, search, notes, invalid-data protection,
+and narrow windows. It deliberately does not serve a separate worker file.
+Screenshots are written to `.test-artifacts/`. The mock uses placeholder icons;
+Obsidian provides the real icons in the host application.
+
+CI builds on Windows and Linux and runs browser interactions on Windows. It has
+not run on GitHub until these workflow files have been pushed.
+
+## Data compatibility
+
+The sidecar filename remains `<pdf-path>.obsidian-annot.json`, including after
+the plugin rename. Version 2 has `pdfPath`, `notes`, and `annotations`. Each
+annotation stores `id`, one-based `page`, `quads`, `text`, `category`, `color`,
+timestamps, and optional `title`, `comment`, `tags`, and `position`.
+
+| Previous category | Current category |
+| --- | --- |
+| criticism | limitation |
+| question | note |
+| positive | evidence |
+| unclear | note |
+| literature | evidence |
+| method | method |
+
+Version 1 color-only annotations map red to Limitation, yellow/orange to Note,
+green/purple to Evidence, and blue to Method. Data is migrated in memory and
+written on the next edit. Invalid sidecars are rejected without overwriting them.
+New sidecars are created only when the user changes something. Pending notes are
+flushed before switching documents or closing the view.
+
+Concurrent changes from multiple views are not merged. Do not run both the old
+development plugin and Remark My Words against the same documents.

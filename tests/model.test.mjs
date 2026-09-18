@@ -10,7 +10,7 @@ const migrated = readSidecar(JSON.stringify(original), 'renamed.pdf');
 assert.equal(migrated.version, 2);
 assert.equal(migrated.pdfPath, 'renamed.pdf');
 assert.equal(migrated.notes, original.notes);
-assert.equal(migrated.annotations[0].category, 'criticism');
+assert.equal(migrated.annotations[0].category, 'limitation');
 assert.equal(migrated.annotations[0].comment, annotation.comment);
 assert.deepEqual(migrated.annotations[0].quads, annotation.quads);
 migrated.annotations[0].position = { x: -550, y: 1240 };
@@ -20,8 +20,17 @@ for (const invalid of [null, { ...original, version: 99 }, { ...original, annota
   assert.throws(() => readSidecar(JSON.stringify(invalid), 'test.pdf'));
 }
 assert.throws(() => readSidecar('{broken json', 'test.pdf'));
-for (const [color, category] of Object.entries({ red: 'criticism', yellow: 'unclear', green: 'positive', blue: 'method' })) {
+for (const [color, category] of Object.entries({ red: 'limitation', yellow: 'note', green: 'evidence', blue: 'method' })) {
   assert.equal(readSidecar(JSON.stringify({ ...original, annotations: [{ ...annotation, color }] }), 'test.pdf').annotations[0].category, category);
+}
+for (const [oldCategory, category] of Object.entries({ criticism: 'limitation', question: 'note', positive: 'evidence', unclear: 'note', literature: 'evidence', method: 'method' })) {
+  const saved = { ...annotation, category: oldCategory, position: { x: -400, y: 70 }, tags: ['Original tag'], title: 'Original title' };
+  const result = readSidecar(JSON.stringify({ ...original, version: 2, annotations: [saved] }), 'test.pdf').annotations[0];
+  assert.equal(result.category, category);
+  for (const key of ['position', 'quads', 'tags', 'text', 'comment', 'title']) assert.deepEqual(result[key], saved[key]);
+}
+for (const category of ['claim', 'evidence', 'method', 'concept', 'limitation', 'note']) {
+  assert.equal(readSidecar(JSON.stringify({ ...original, version: 2, annotations: [{ ...annotation, category }] }), 'test.pdf').annotations[0].category, category);
 }
 const quad = annotation.quads[0];
 assert.deepEqual(connection({ x: -400, y: 20, width: 300, height: 200 }, quad).anchor, { x: 120, y: 260 });

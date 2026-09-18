@@ -1,128 +1,153 @@
-# PDF Canvas für Obsidian
+﻿# Remark My Words
 
-Ein PDF-Reader mit einer frei verschiebbaren Arbeitsfläche: Die aktuelle PDF-Seite
-steht in der Mitte, Kommentare liegen als Karten daneben. Farbige, gestrichelte
-Linien verbinden jede Karte mit ihrer markierten Textstelle.
+**Read a paper. Mark a passage. Give your thoughts room.**
 
-## Funktionen
+Remark My Words is an Obsidian community plugin for reading and annotating PDFs.
+Write categorized comments beside passages, then switch to a canvas where your
+notes become movable cards connected to the original text.
 
-- Dunkle Canvas-Ansicht mit Punktraster, Zoom, Handwerkzeug und klickbarer Minimap.
-- Sechs Kategorien: **Kritik**, **Frage**, **Positiv**, **Unklar**, **Literatur**, **Methode**.
-- Einheitliche Kategorienfarben für Textmarkierung, Kommentar und Verbindung.
-- Kommentare mit Titel, Text und Tags; frei platzierbare Karten mit gespeicherten Positionen.
-- Kategorienfilter, Seitenvorschauen, Seitennavigation und Volltextsuche nach Fundseiten.
-- Dokumentweite Notizen mit automatischer Speicherung.
-- Lokale JSON-Dateien im Vault; bestehende Markierungen und Notizen werden übernommen.
+![PDF page surrounded by categorized comment cards and colored connectors](docs/images/canvas-preview.png)
 
-## Bedienung
+*Canvas preview with a sample document in the browser test harness. Obsidian supplies the actual toolbar icons.*
 
-1. PDF im Vault öffnen und den Befehl **Open PDF in Annotator view** ausführen.
-   Alternativ im Dateikontextmenü **In PDF Canvas öffnen** wählen.
-2. Text im PDF auswählen. In der erscheinenden Werkzeugleiste oder per Rechtsklick
-   eine Kategorie wählen und den Kommentar speichern. Ohne Kommentartext wird
-   die ausgewählte Textstelle als Karte angezeigt.
-3. Karten an ihrem Kopf ziehen. Doppelklick öffnet den Editor; das Menü **…**
-   erlaubt Bearbeitung, Kategorienwechsel und Löschen.
-4. **↗ S. …** auf einer Karte zentriert die zugehörige Textstelle.
-5. Auf leerem Canvas ziehen oder das Handwerkzeug verwenden. Das Mausrad verschiebt
-   die Arbeitsfläche; **Strg/⌘ + Mausrad** zoomt um den Mauszeiger.
-6. **Alles einpassen** zeigt PDF und alle sichtbaren Karten. Die Minimap navigiert
-   auch zu Karten außerhalb des sichtbaren Bereichs.
+## Read closely, think spatially
 
-Jede PDF-Seite hat ihren eigenen Canvas mit ihren zugehörigen Kommentaren.
-Seitenwechsel erfolgen über die Vorschaubilder, Pfeile oder das Seitenzahlfeld.
-Die Suche springt mit Enter zur nächsten Fundseite, mit Umschalt+Enter zurück.
-Die Kategorienfilter gelten für die aktuelle Seite.
-
-| Taste | Aktion |
+| Reading mode | Canvas mode |
 | --- | --- |
-| V / H | Textauswahl / Handwerkzeug |
-| + / − | Vergrößern / verkleinern |
-| 0 | PDF und sichtbare Karten einpassen |
-| Bild auf / Bild ab | Vorherige / nächste Seite |
-| Strg/⌘ + F | Dokument durchsuchen |
-| Escape | Auswahl aufheben, zum Auswahlwerkzeug wechseln |
-| Pfeiltasten bei fokussierter Karte | Karte um 10 Einheiten verschieben; mit Umschalt um 40 |
-| Enter bei fokussierter Karte | Kommentar bearbeiten |
-| Strg/⌘ + Enter im Kommentarfeld | Kommentar speichern |
+| Focus on one PDF page with normal scrolling. | Arrange comment cards around the PDF. |
+| Select a passage and add a comment from the floating toolbar. | Follow colored connectors back to the source passage. |
+| Hover a highlight to read its comment. | Pan, zoom, filter categories, and navigate with the minimap. |
+| Keep your reading position when saving a comment. | Keep your card positions when switching modes. |
 
-## Installation
+Classify annotations as **Claim**, **Evidence**, **Method**, **Concept**,
+**Limitation**, or **Note**. Each comment can have a title, description, and tags.
+Page thumbnails, document search, and document-wide notes are included.
 
-Nach `npm install` und `npm run build` diese vier Dateien nach
-`.obsidian/plugins/obsidian-pdf-annotator-comment/` im Vault kopieren:
+## Install
 
-- `manifest.json`
-- `main.js`
-- `styles.css`
-- `pdf.worker.min.mjs`
+Initial release target: **Obsidian Desktop 1.13.7 or later**, using an up-to-date
+Obsidian installer. Mobile support is not enabled for the initial release.
 
-Dann das Plugin in Obsidian unter **Community plugins** aktivieren bzw. neu laden.
-Der bestehende Plugin-Identifier und der bisherige Öffnungsbefehl bleiben gleich.
-Die Obsidian-PDF-Standardansicht bleibt über das Menü **…** erreichbar.
+### Manual installation
 
-## Architektur und Repository-Kontext
+Until the plugin is approved for the Community directory:
 
-Das ursprüngliche Repo bestand aus einer einzelnen TypeScript-Datei mit einem
-eigenen PDF.js-Reader, pixelbasierten Markierungen und einer festen Seitenleiste.
-Der Umbau verwendet weiterhin PDF.js und die bestehenden Sidecar-Dateien:
+1. Open [Releases](https://github.com/hoelk-f/remark-my-words/releases) and choose a published release. If none is available yet, use the source-build instructions below.
+2. Download the attached **main.js**, **manifest.json**, and **styles.css** files. GitHub's automatic source-code archive is not the installable plugin.
+3. Create `<your-vault>/.obsidian/plugins/remark-my-words/` and put those three files inside it.
+4. Reload Obsidian, open **Settings → Community plugins**, and enable **Remark My Words**.
 
-- `src/main.ts`: Obsidian-Integration, PDF-/Text-Layer, Seitenvorschauen,
-  Canvas-Kamera, Interaktion, SVG-Verbindungen und serialisierte Speicherung.
-- `src/model.ts`: Kategorien, Datenformat, Migration und Geometriefunktionen.
-- `src/editor.ts`: Kommentar-Dialog mit Titel, Kategorie, Text und Tags.
-- `styles.css`: vollständig auf das Plugin begrenzte Oberfläche.
-- `tests/`: Daten-/Geometrietests und Browsertest mit echter PDF.js-Darstellung.
-- `main.js`: mit esbuild erzeugtes Plugin-Bundle.
+The PDF renderer and worker are included in `main.js`; no additional worker file
+or internet connection is needed to read and annotate documents.
 
-Nur die aktuelle PDF-Seite wird groß gerendert; Vorschaubilder werden bei Bedarf
-geladen. Seitenwechsel brechen veraltete Renderaufträge ab. PDF-Koordinaten bleiben
-bei der bisherigen Skala 1,35; eine separate Canvas-Transformation übernimmt Zoom
-und Verschiebung. So bleiben alte Markierungen unverändert an ihrer Textstelle.
+After approval, users will be able to find **Remark My Words** under
+**Settings → Community plugins → Browse**. A GitHub release alone does not make
+it available in that directory.
 
-## Speicherung
+### Build from source
 
-Die Datei `beispiel.pdf.obsidian-annot.json` enthält:
-
-- `version: 2`, `pdfPath`, `notes` und `annotations`.
-- Pro Annotation: `id`, `page` (ab 1), `quads`, `text`, `color`, `category`,
-  optionale Felder `title`, `comment`, `tags`, `position`, sowie Zeitstempel.
-- `position: { x, y }` relativ zur linken oberen Ecke der PDF-Seite.
-  Negative Werte sind erlaubt. Kartenpositionen sind unabhängig vom Zoom.
-
-Version 1 wird beim Lesen im Speicher übernommen und bei der nächsten Änderung
-als Version 2 gespeichert. Rot → Kritik, Gelb → Unklar, Grün → Positiv, Blau → Methode.
-Beschädigte oder unbekannte Dateien werden nicht überschrieben. Neue Sidecar-Dateien
-entstehen erst bei einer Änderung. Schreibvorgänge innerhalb einer Ansicht werden
-serialisiert; ausstehende Notizen werden beim Schließen und Dokumentwechsel gespeichert.
-
-## Entwicklung und Prüfung
+With Node.js 22 or later:
 
 ```sh
-npm install
-npm run typecheck
-npm test
-npm run build
-npm run dev
+git clone https://github.com/hoelk-f/remark-my-words.git
+cd remark-my-words
+npm ci
+npm run package:release
 ```
 
-`npm run test:browser` startet einen lokalen Testserver und einen unsichtbaren
-Edge-Browser mit temporärem Profil. Mit `BROWSER_PATH` lässt sich eine andere
-Chromium-Browserinstallation angeben. Dafür ist keine Browser-Testbibliothek nötig.
-Der Test verwendet eine erzeugte zweiseitige PDF und eine nachgebildete Obsidian-API;
-er greift nicht auf einen echten Vault zu. Er prüft Textauswahl, Kommentare, Drag-and-drop
-bei Zoom, erneutes Laden, Kategorienfilter, Suche, Notizen beim Dokumentwechsel
-und den Schutz beschädigter Dateien. Ein Screenshot entsteht unter
-`.test-artifacts/canvas.png`.
+Copy the contents of `dist/remark-my-words/` into the plugin folder above.
 
-## Aktuelle Grenzen
+## Get started
 
-- Seitenweiser Canvas, keine gemeinsame Fläche mit allen PDF-Seiten gleichzeitig.
-- Anmerkungen liegen in der JSON-Datei; kein Export als native PDF-Annotationen.
-- Textauswahl und Suche benötigen eine PDF-Textebene; keine OCR für reine Scans.
-- Suche navigiert nach Fundseiten; die Hervorhebung einzelner PDF-Textspannen ist
-  bei über mehrere Spannen verteilten Suchphrasen eingeschränkt.
-- Gleichzeitige Bearbeitung derselben PDF in mehreren Ansichten oder Geräten
-  wird nicht zusammengeführt.
-- Browsertests ersetzen keinen abschließenden Test im Obsidian-Host.
+1. Open a PDF in your vault.
+2. Run **Open PDF in Remark My Words** from the command palette, or choose **Open in Remark My Words** from the PDF's file menu.
+3. Use the **book** icon for Reading or the **dashboard** icon for Canvas. Tooltips identify each control.
+4. Select text, click a category in the floating toolbar, and fill in **Add comment**. Right-clicking selected text also offers categories.
+5. In Reading, hover a highlighted passage to read its comment. The **Read page comments** button also works with a keyboard or touch input.
+6. In Canvas, drag a card by its header. Double-click it to edit; its **…** menu provides category changes and deletion. **↗ p. …** takes you back to the passage.
 
-MIT-Lizenz, siehe `LICENSE`.
+Navigate pages with thumbnails, arrows, or the page number. Search with Enter
+for the next matching page or Shift+Enter for the previous one. The **…** toolbar
+menu can reopen the document in Obsidian's native PDF viewer.
+
+## Your data stays in your vault
+
+The plugin does not send PDFs, comments, or notes to an external service. It has
+no accounts, telemetry, or paid features. Normal reading and annotation do not
+make network requests. Plugin installation and updates are handled by Obsidian
+and GitHub.
+
+Comments and notes are stored beside the PDF in a readable JSON file:
+
+```text
+paper.pdf
+paper.pdf.obsidian-annot.json
+```
+
+The original PDF is not modified. Keep the PDF and its annotation file together
+when moving or backing up your documents. Renaming the PDF currently requires
+renaming its annotation file to match. Your vault's existing sync service can
+sync these files; the plugin does not provide its own synchronization.
+
+### Upgrading from the old development name
+
+If you installed `obsidian-pdf-annotator-comment`, disable that plugin first and
+install this version in `remark-my-words`. Avoid enabling both versions together.
+Existing `.obsidian-annot.json` files are reused; you do not need to rename them
+for the plugin rename. Old categories are migrated while preserving comments,
+coordinates, and card positions. Reassign any command hotkeys under the new
+plugin name. See [data compatibility](docs/DEVELOPMENT.md#data-compatibility).
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| V / H | Select text / pan canvas |
+| + / − | Zoom in / out |
+| Ctrl/⌘ + wheel | Zoom around the pointer |
+| 0 | Fit page and cards in Canvas; fit page width in Reading |
+| Page Up / Page Down | Previous / next page |
+| Ctrl/⌘ + F | Search this PDF |
+| Escape | Dismiss a preview or clear the selection |
+| Arrow keys on a focused card | Move by 10 units; Shift moves by 40 |
+| Enter on a focused card | Edit the comment |
+| Ctrl/⌘ + Enter in the description field | Save the comment |
+
+## Current limits
+
+- One PDF page is displayed at a time in both modes.
+- Scanned documents need an existing text layer; OCR is not included.
+- Annotations live in the JSON file, not as native annotations inside the PDF.
+- Search jumps between matching pages; phrases spanning multiple PDF text runs may not be fully highlighted.
+- Concurrent edits to the same PDF from multiple views or devices are not merged.
+- The initial release targets desktop. Automated browser tests do not replace testing in Obsidian, and mobile compatibility has not been verified.
+
+## Feedback and development
+
+[Report a bug or request a feature](https://github.com/hoelk-f/remark-my-words/issues).
+For bugs, include your Obsidian version, plugin version, operating system, and
+steps to reproduce. Share only non-sensitive sample documents.
+
+- [Contributing](CONTRIBUTING.md)
+- [Development, architecture, and data format](docs/DEVELOPMENT.md)
+- [Release and Community directory submission guide](docs/RELEASING.md)
+- [Changelog](CHANGELOG.md)
+
+## Maintainer: publish an update
+
+Run `npm run release` from an up-to-date checkout of `main`. The script publishes
+the current version on the first run and increments the patch version for later
+updates. It includes all non-ignored local changes, runs checks, builds, commits,
+tags, pushes, and waits for GitHub Actions to publish the three installable files.
+Use `npm run release:preview` to preview the plan without changes.
+See the [release guide](docs/RELEASING.md) for prerequisites, version options,
+recovery, and the one-time Obsidian Community submission.
+
+## License
+
+Remark My Words is released under the [MIT License](LICENSE).
+PDF rendering uses Mozilla's [PDF.js](https://mozilla.github.io/pdf.js/), licensed
+under [Apache 2.0](docs/licenses/pdfjs-dist.txt). License notices are retained in
+the distributed bundle. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+This is an independent community project, not an official Obsidian product.

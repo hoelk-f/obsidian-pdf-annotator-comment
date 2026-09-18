@@ -5,20 +5,22 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pdfWorkerPlugin } from '../scripts/pdf-worker-plugin.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const artifacts = path.join(root, '.test-artifacts');
 await mkdir(artifacts, { recursive: true });
-const bundle = await build({ absWorkingDir: root, entryPoints: ['tests/browser-entry.mjs'], bundle: true, write: false, format: 'esm', alias: { obsidian: path.join(root, 'tests/obsidian-mock.mjs') } });
+const bundle = await build({ absWorkingDir: root, entryPoints: ['tests/browser-entry.mjs'], bundle: true, write: false, format: 'esm', plugins: [pdfWorkerPlugin], alias: { obsidian: path.join(root, 'tests/obsidian-mock.mjs') } });
 
 function fixturePdf() {
   const line = (text, x, y, size = 12, font = 'F1') => `BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${Buffer.from(text, 'latin1').toString('hex')}> Tj ET\n`;
   let stream = line('Universität Musterstadt', 48, 795, 10) + line('Müller et al. (2023)', 432, 795, 10);
+  stream += line('F', 48, 768, 18) + line('RAMEWORK', 57, 768, 14);
   stream += line('Der Einfluss von Gewohnheiten', 48, 737, 23, 'F2') + line('auf produktives Arbeiten', 48, 710, 23, 'F2');
   const sections = [
     ['1.  Einleitung', ['Gewohnheiten spielen eine zentrale Rolle in unserem alltäglichen Handeln.', 'Sie ermöglichen es, kognitive Ressourcen zu sparen und wiederkehrende', 'Aufgaben effizient zu bewältigen. In den letzten Jahren ist das Interesse', 'an der Formierung und Veränderung von Gewohnheiten deutlich gestiegen.', '', 'Trotz dieser Fortschritte bleibt jedoch unklar, in welchem Ausmaß', 'Gewohnheiten langfristig wirken und welche Faktoren entscheidend sind.', 'Nicht alle Gewohnheiten sind per se positiv zu bewerten, sondern der', 'Kontext spielt eine entscheidende Rolle.']],
     ['2.  Theoretischer Hintergrund', ['Der Begriff der Gewohnheit wird in der Forschung unterschiedlich definiert.', 'Einige Autoren verstehen Gewohnheiten als automatisierte Verhaltensweisen.', 'Andere betonen die Bedeutung bewusster kognitiver Prozesse.', 'Dazu finden sich Hinweise bei Lally et al. (2010).']],
-    ['3.  Methodik', ['In der vorliegenden Studie wurde ein Mixed-Methods-Ansatz gewählt.', 'Quantitative Umfragedaten wurden mit qualitativen Interviews kombiniert.', 'Die Stichprobe umfasste N = 120 Teilnehmende über acht Wochen.', 'Die Daten wurden mittels standardisierter Fragebögen erhoben.']],
+    ['3.  Methodik', ['In der vorliegenden Studie wurde ein Mixed-Methods-Ansatz gewählt.', 'Quantitative Umfragedaten wurden mit qualitativen Interviews kombiniert.', 'Die Stichprobe umfasste N = 120 Teilnehmende über acht Wochen.', 'Die Daten wurden mittels standardisierter Claimbögen erhoben.']],
     ['4.  Ergebnisse', ['Die Ergebnisse zeigen einen Zusammenhang mit höherer Produktivität.', 'Gleichzeitig zeigen sich individuelle Unterschiede und situative Faktoren.', 'Der Kontext spielt eine wichtige moderierende Rolle.']],
   ];
   let y = 660;
@@ -49,7 +51,6 @@ const html = `<!DOCTYPE html><html><meta charset="UTF-8"><style>html,body,#app{h
 const routes = new Map([
   ['/', ['text/html', html]], ['/bundle.js', ['text/javascript', bundle.outputFiles[0].contents]],
   ['/styles.css', ['text/css', await readFile(path.join(root, 'styles.css'))]],
-  ['/pdf.worker.min.mjs', ['text/javascript', await readFile(path.join(root, 'pdf.worker.min.mjs'))]],
   ['/fixture.pdf', ['application/pdf', fixturePdf()]],
 ]);
 const server = createServer((req, res) => { const route = routes.get(req.url); res.writeHead(route ? 200 : 404, { 'Content-Type': route?.[0] ?? 'text/plain' }); res.end(route?.[1] ?? 'Not found'); });
@@ -83,21 +84,72 @@ try {
   await until('window.ready === true');
   assert.equal(await evaluate('view.pageReady'), true, 'Real PDF must render with a text layer');
   assert.ok(await evaluate('document.querySelectorAll(".pdfaw-textlayer span").length') > 20);
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.pdfaw-modes button'), b => ({ text: b.textContent, label: b.getAttribute('aria-label'), icon: b.dataset.icon }))`), [
+    { text: '', label: 'Canvas mode', icon: 'layout-dashboard' },
+    { text: '', label: 'Reading mode', icon: 'book-open' },
+  ], 'Mode controls use accessible icons');
   // Obsidian disables selection on its UI; the PDF layer must explicitly opt in.
   await evaluate('document.body.style.userSelect = "none"');
+  for (const mode of ['canvas', 'reading']) {
+    await evaluate(`view.setMode('${mode}')`);
+    const boxes = await evaluate(`(() => {
+      const spans=[...document.querySelectorAll('.pdfaw-textlayer span')];
+      return ['F','RAMEWORK'].map(text=>{const r=spans.find(s=>s.textContent===text).getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+    })()`);
+    const [first, last] = boxes;
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: first.x + 1, y: first.y + first.h / 2, button: 'left', clickCount: 1 });
+    // Extend and contract a real native selection without releasing the mouse.
+    for (const fraction of [0.45, 0.95, 0.65, 0.95]) {
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: last.x + last.w * fraction, y: last.y + last.h / 2, button: 'left', buttons: 1 });
+      await until(`view.selection?.text === getSelection().toString().trim() && view.selection?.text.length > 3`);
+      assert.equal(await evaluate('view.selection.quads.length'), 1, `${mode}: small caps are merged during dragging`);
+      assert.equal(await evaluate('view.selectionBar.hidden'), true, 'The category toolbar waits until release');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.pdfaw-textlayer span'),'::selection').backgroundColor`), 'rgba(0, 0, 0, 0)');
+      assert.deepEqual(await evaluate(`(() => {const el=document.querySelector('.pdfaw-selection');return [getComputedStyle(el).opacity,getComputedStyle(el.firstChild).backgroundColor,getComputedStyle(el.firstChild).opacity];})()`), ['0.25', 'rgb(239, 68, 68)', '1'], 'Red opacity is applied once to the whole selection');
+    }
+    const liveQuads = await evaluate('view.selection.quads');
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: last.x + last.w * 0.95, y: last.y + last.h / 2, button: 'left', clickCount: 1 });
+    assert.deepEqual(await evaluate('view.selection.quads'), liveQuads, 'No refinement or shape change on release');
+    assert.equal(await evaluate('view.selectionBar.hidden'), false);
+    const lines = await evaluate(`(() => {
+      const spans=[...document.querySelectorAll('.pdfaw-textlayer span')];
+      return ['Gewohnheiten spielen','Sie ermöglichen'].map(text=>{const r=spans.find(s=>s.textContent.includes(text)).getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+    })()`);
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: lines[0].x + 1, y: lines[0].y + lines[0].h / 2, buttons: 0 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: lines[0].x + 1, y: lines[0].y + lines[0].h / 2, button: 'left', clickCount: 1 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: lines[0].x + lines[0].w / 2, y: lines[0].y + lines[0].h / 2, button: 'left', buttons: 1 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: lines[1].x + lines[1].w / 2, y: lines[1].y + lines[1].h / 2, button: 'left', buttons: 1 });
+    await until('view.selection?.quads.length === 2');
+    assert.equal(await evaluate('view.selection.text'), await evaluate('getSelection().toString().trim()'), 'Native multiline text selection is preserved');
+    const multiline = await evaluate('view.selection.quads');
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: lines[1].x + lines[1].w / 2, y: lines[1].y + lines[1].h / 2, button: 'left', clickCount: 1 });
+    assert.deepEqual(await evaluate('view.selection.quads'), multiline, 'Multiline selection does not change on release');
+    await evaluate('getSelection().removeAllRanges()');
+    await until('view.selection === null');
+  }
+  await evaluate(`view.setMode('canvas')`);
   const textBox = await evaluate(`(() => {const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen'));const r=span.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};})()`);
   await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: textBox.x + 1, y: textBox.y + textBox.h / 2, button: 'left', clickCount: 1 });
   await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: textBox.x + textBox.w - 2, y: textBox.y + textBox.h / 2, button: 'left', buttons: 1 });
   await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: textBox.x + textBox.w - 2, y: textBox.y + textBox.h / 2, button: 'left', clickCount: 1 });
   assert.ok(await evaluate('view.selection?.text.includes("Gewohnheiten")'), 'Native mouse text selection must work inside Obsidian UI');
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-selection > div").length'), 1, 'A line is painted once');
+  await evaluate(`(() => {
+    const spans=[...document.querySelectorAll('.pdfaw-textlayer span')];
+    const first=spans.find(s=>s.textContent==='F'), last=spans.find(s=>s.textContent==='RAMEWORK');
+    const range=document.createRange();range.setStart(first.firstChild,0);range.setEnd(last.firstChild,last.textContent.length);
+    getSelection().removeAllRanges();getSelection().addRange(range);view.captureSelection();
+  })()`);
+  assert.equal(await evaluate('view.selection.quads.length'), 1, 'Overlapping small-cap glyphs form one uniform selection rectangle');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.pdfaw-textlayer span'),'::selection').backgroundColor`), 'rgba(0, 0, 0, 0)', 'Native selection does not darken the custom selection');
   await evaluate('view.clearSelection();getSelection().removeAllRanges()');
   await evaluate(`(() => {
     const items = [
-      ['criticism','Methodischer Einwand','Ist die Annahme, dass kognitive Ressourcen durch Gewohnheiten gespart werden, ausreichend belegt? Hier fehlen neuere Quellen.','kognitive Ressourcen',['Methodik','Belege']],
-      ['question','Gegenbeispiel?','Gibt es Studien, die zeigen, dass Gewohnheiten keinen dauerhaften Einfluss auf die Produktivität haben?\\n\\nEvtl. nach konträren Befunden suchen.','in welchem Ausmaß',['Recherche','Diskussion']],
-      ['positive','Starke Argumentation','Guter Überblick über den aktuellen Forschungsstand. Die Einordnung des Kontexts ist überzeugend und gut belegt.','automatisierte',['Argumentation','Struktur']],
-      ['unclear','Begriff unklar','Was genau ist hier mit „Kontext“ gemeint? Individuelle, soziale oder organisationale Faktoren?','Kontext spielt',['Begriff','Definition']],
-      ['literature','Quelle prüfen','Lally et al. (2010) genauer lesen. Relevante Aussagen für den Theorieteil. Gibt es neuere Studien, die das widersprechen?','Lally',['Lesen','Wichtig']],
+      ['limitation','Methodischer Einwand','Ist die Annahme, dass kognitive Ressourcen durch Gewohnheiten gespart werden, ausreichend belegt? Hier fehlen neuere Quellen.','kognitive Ressourcen',['Methodik','Belege']],
+      ['claim','Gegenbeispiel?','Gibt es Studien, die zeigen, dass Gewohnheiten keinen dauerhaften Einfluss auf die Produktivität haben?\\n\\nEvtl. nach konträren Befunden suchen.','in welchem Ausmaß',['Recherche','Diskussion']],
+      ['evidence','Starke Argumentation','Guter Überblick über den aktuellen Forschungsstand. Die Einordnung des Kontexts ist überzeugend und gut belegt.','automatisierte',['Argumentation','Struktur']],
+      ['note','Begriff unklar','Was genau ist hier mit „Kontext“ gemeint? Individuelle, soziale oder organisationale Faktoren?','Kontext spielt',['Begriff','Definition']],
+      ['concept','Quelle prüfen','Lally et al. (2010) genauer lesen. Relevante Aussagen für den Theorieteil. Gibt es neuere Studien, die das widersprechen?','Lally',['Lesen','Wichtig']],
       ['method','Methodischer Hinweis','Spannender Mixed-Methods-Ansatz. Wäre es sinnvoll, die qualitative Stichprobe genauer zu beschreiben?','Mixed-Methods',['Methodik','Verbesserung']],
     ];
     const box = view.pageEl.getBoundingClientRect(), z = view.camera.zoom;
@@ -125,14 +177,14 @@ try {
   await evaluate(`document.querySelector('.pdfaw-filters button:nth-child(2)').click()`);
   assert.equal(await evaluate('document.querySelectorAll(".pdfaw-comment-card").length'), 1);
   await evaluate(`document.querySelector('.pdfaw-filters button').click(); view.zoomBy(1.3);`);
-  await evaluate(`(() => { const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen')); const r=document.createRange();r.selectNodeContents(span);getSelection().removeAllRanges();getSelection().addRange(r);span.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));document.querySelector('.pdfaw-selection-toolbar button[title="Frage"]').click(); })()`);
+  await evaluate(`(() => { const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen')); const r=document.createRange();r.selectNodeContents(span);getSelection().removeAllRanges();getSelection().addRange(r);span.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));document.querySelector('.pdfaw-selection-toolbar button[title="Claim"]').click(); })()`);
   assert.equal(await evaluate('document.querySelectorAll(".modal").length'), 1);
-  await evaluate(`(() => {const body=document.querySelector('.pdfaw-editor-body');body.value='Neuer Kommentar';body.dispatchEvent(new Event('input'));[...document.querySelectorAll('.modal button')].find(b=>b.textContent==='Speichern').click();return view.saveQueue;})()`);
+  await evaluate(`(() => {const body=document.querySelector('.pdfaw-editor-body');body.value='Neuer Kommentar';body.dispatchEvent(new Event('input'));[...document.querySelectorAll('.modal button')].find(b=>b.textContent==='Save').click();return view.saveQueue;})()`);
   assert.equal(await evaluate('view.sidecar.annotations.length'), 7);
-  assert.equal(await evaluate('view.sidecar.annotations.at(-1).category'), 'question');
-  await evaluate(`document.querySelector('.pdfaw-card-header button').click();lastMenu.items.find(item=>item.text==='Literatur').action();view.saveQueue`);
-  assert.equal(await evaluate('view.sidecar.annotations[0].category'), 'literature');
-  await evaluate(`document.querySelector('.pdfaw-card-header button').click();lastMenu.items.find(item=>item.text==='Kommentar löschen').action();view.saveQueue`);
+  assert.equal(await evaluate('view.sidecar.annotations.at(-1).category'), 'claim');
+  await evaluate(`document.querySelector('.pdfaw-card-header button').click();lastMenu.items.find(item=>item.text==='Concept').action();view.saveQueue`);
+  assert.equal(await evaluate('view.sidecar.annotations[0].category'), 'concept');
+  await evaluate(`document.querySelector('.pdfaw-card-header button').click();lastMenu.items.find(item=>item.text==='Delete comment').action();view.saveQueue`);
   assert.equal(await evaluate('view.sidecar.annotations.length'), 6);
   await evaluate(`document.querySelector('.pdfaw-comment-card').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));view.saveQueue`);
   await evaluate('view.showPage(2)');
@@ -140,6 +192,68 @@ try {
   await evaluate(`view.searchInput.value='kognitive'; view.clearSearch(); view.searchDocument(1)`);
   assert.equal(await evaluate('view.currentPage'), 1);
   assert.ok(await evaluate('document.querySelectorAll(".pdfaw-search-hit").length') > 0);
+  const canvasState = await evaluate('({ camera: {...view.camera}, positions: view.sidecar.annotations.map(a=>a.position) })');
+  await evaluate(`document.querySelector('.pdfaw-modes button:nth-child(2)').click()`);
+  assert.equal(await evaluate('view.mode'), 'reading');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.pdfaw-cards')).display`), 'none');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.pdfaw-viewport')).overflowY`), 'auto');
+  assert.equal(await evaluate(`document.querySelector('.pdfaw-hint')`), null);
+  await evaluate('view.viewport.scrollTop = 180');
+  const scrollBefore = await evaluate('view.viewport.scrollTop');
+  assert.ok(scrollBefore > 0, 'Reading mode scrolls naturally');
+  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+  const hover = await evaluate(`(() => {
+    const a=view.sidecar.annotations[0],q=a.quads[0],r=view.pageEl.getBoundingClientRect(),z=view.camera.zoom;
+    return {x:r.x+(q.x+q.w/2)*z,y:r.y+(q.y+q.h/2)*z,title:a.title,comment:a.comment};
+  })()`);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hover.x, y: hover.y, buttons: 0 });
+  await until('!document.querySelector(".pdfaw-comment-preview").hidden');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-item h3").textContent'), hover.title);
+  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-body").textContent'), hover.comment);
+  const previewBox = await evaluate(`(() => {const r=document.querySelector('.pdfaw-comment-preview').getBoundingClientRect();return {x:r.x+20,y:r.y+20,right:r.right,bottom:r.bottom};})()`);
+  assert.ok(previewBox.right <= 1672 && previewBox.bottom <= 941, 'Preview fits in the viewport');
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: previewBox.x, y: previewBox.y, buttons: 0 });
+  await evaluate('new Promise(resolve=>setTimeout(resolve,250))');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open while hovered');
+  const previewShot = await cdp('Page.captureScreenshot', { format: 'png' });
+  await writeFile(path.join(artifacts, 'comment-preview.png'), Buffer.from(previewShot.data, 'base64'));
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
+  await evaluate('document.querySelector(".pdfaw-read-comments").click()');
+  assert.equal(await evaluate('document.activeElement.className'), 'pdfaw-comment-preview');
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-preview-item").length'), 6, 'Keyboard/touch button exposes all page comments');
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+  assert.equal(await evaluate('document.activeElement.classList.contains("pdfaw-read-comments")'), true, 'Dismissal restores keyboard focus');
+  await evaluate(`(() => {
+    const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen'));
+    const r=document.createRange();r.setStart(span.firstChild,4);r.setEnd(span.firstChild,25);
+    getSelection().removeAllRanges();getSelection().addRange(r);view.captureSelection();
+  })()`);
+  assert.equal(await evaluate('view.selection.text'), 'hnheiten spielen eine');
+  const readingShot = await cdp('Page.captureScreenshot', { format: 'png' });
+  await writeFile(path.join(artifacts, 'reading.png'), Buffer.from(readingShot.data, 'base64'));
+  await evaluate(`document.querySelector('.pdfaw-selection-toolbar button[title="Note"]').click()`);
+  assert.equal(await evaluate('document.querySelector(".modal").dataset.title'), 'Add comment');
+  await evaluate(`(() => {const body=document.querySelector('.pdfaw-editor-body');body.value='Reading mode comment';body.dispatchEvent(new Event('input'));[...document.querySelectorAll('.modal button')].find(b=>b.textContent==='Save').click();return view.saveQueue;})()`);
+  assert.equal(await evaluate('view.sidecar.annotations.at(-1).category'), 'note');
+  assert.equal(await evaluate('view.sidecar.annotations.at(-1).comment'), 'Reading mode comment');
+  assert.equal(await evaluate('view.viewport.scrollTop'), scrollBefore, 'Adding a comment preserves reading position');
+  assert.equal(await evaluate('view.mode'), 'reading');
+  await evaluate(`document.querySelector('.pdfaw-modes button').click()`);
+  assert.deepEqual(await evaluate('view.camera'), canvasState.camera, 'Canvas camera survives reading mode');
+  assert.deepEqual(await evaluate('view.sidecar.annotations.slice(0,-1).map(a=>a.position)'), canvasState.positions);
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-comment-card").length'), 7);
+  await evaluate('view.onLoadFile(new TFile("Forschungspapier.pdf"))');
+  assert.equal(await evaluate('view.sidecar.annotations.at(-1).comment'), 'Reading mode comment', 'Reading comments survive reopening');
+  for (const width of [320, 768, 1024, 1440]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 941, deviceScaleFactor: 1, mobile: false });
+    await evaluate(`view.setMode('reading'); view.fit()`);
+    assert.ok(await evaluate('view.pageEl.getBoundingClientRect().width <= view.viewport.clientWidth'), `Reading page fits at ${width}px`);
+    await evaluate(`(() => { const span=document.querySelector('.pdfaw-textlayer span');const r=document.createRange();r.selectNodeContents(span);getSelection().removeAllRanges();getSelection().addRange(r);view.captureSelection(); })()`);
+    assert.ok(await evaluate(`(() => { const r=view.selectionBar.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth; })()`), `Selection toolbar stays on screen at ${width}px`);
+  }
   await evaluate(`view.noteInput.value='Notiz vor Dokumentwechsel';view.noteInput.dispatchEvent(new Event('input'));view.onLoadFile(new TFile('Andere.pdf'))`);
   assert.equal(await evaluate('JSON.parse(storage.get("Forschungspapier.pdf.obsidian-annot.json")).notes'), 'Notiz vor Dokumentwechsel');
   assert.equal(await evaluate('view.sidecar.notes'), '');
@@ -148,7 +262,7 @@ try {
   assert.equal(await evaluate('storage.get("Kaputt.pdf.obsidian-annot.json")'), '{broken');
   await evaluate('view.onClose()');
   assert.deepEqual(errors, [], 'No uncaught browser exceptions');
-  console.log('PASS: real PDF rendering, six categories and links, drag at zoom, reload persistence, filters, selection/editor, page switch, search, notes flush, invalid-sidecar protection');
+  console.log('PASS: real PDF rendering, small-cap selection, six categories, links, drag at zoom, reload persistence, filters, selection/editor, reading comments and scroll, mode switching, responsive widths, page switch, search, notes flush, invalid-sidecar protection');
   console.log(`Screenshot: ${path.join(artifacts, 'canvas.png')}`);
 } finally {
   socket?.close(); browser.kill(); server.closeAllConnections(); server.close();
