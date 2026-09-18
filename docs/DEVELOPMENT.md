@@ -95,3 +95,24 @@ publishing them.
 PDF.js includes dynamic-code capability checks in its distributed source. We
 set `isEvalSupported: false` when loading PDFs to disable optional eval-based
 rendering optimizations. Static scanners may still flag the dependency code.
+
+## Custom categories
+
+Categories are stored through the Obsidian plugin data API, shared by all open
+views in the current vault. Built-in IDs remain stable; new IDs use
+`custom-<uuid>`. Renaming never changes an ID. Deletion archives the definition
+so existing annotations still render, while active pickers omit it. At least
+one category must remain active. Settings saves are serialized and stale
+dialogs are rejected rather than overwriting newer edits.
+
+Saved annotations may also contain `categoryStyle` (label, color, hex, icon).
+This snapshot lets comments with custom IDs remain readable if plugin settings
+are missing after a reinstall or when a sidecar is moved to another vault.
+Vault settings take precedence when the same category ID exists. Category
+changes update open views; snapshots are written with the next annotation save.
+Older plugin versions cannot load custom category IDs; use version 0.2.0 or newer
+for sidecars containing custom categories. The sidecar format version stays 2.
+
+`tests/categories.test.mjs` covers persistence, migration, validation and save
+failures. `tests/category-browser.mjs` exercises the manager, PDF picker,
+existing comments after deletion, and a narrow viewport in the browser harness.

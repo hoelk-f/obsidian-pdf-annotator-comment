@@ -9,13 +9,16 @@ export const CATEGORIES = {
   limitation: { label: "Limitation", color: "red", hex: "#ff657e", icon: "circle-alert" },
   note: { label: "Note", color: "yellow", hex: "#f4d653", icon: "sticky-note" },
 } as const;
-export type Category = keyof typeof CATEGORIES;
+export type Category = keyof typeof CATEGORIES | `custom-${string}`;
+export type CategoryStyle = { label: string; color: string; hex: string; icon: string };
+export type CategoryDefinition = CategoryStyle & { id: Category; archived?: boolean };
 export type Point = { x: number; y: number };
 export type Quad = Point & { w: number; h: number };
 export type Annotation = {
   id: string;
   page: number;
   category: Category;
+  categoryStyle?: CategoryStyle;
   color: string;
   quads: Quad[];
   text: string;
@@ -39,7 +42,16 @@ const point = (value: unknown): value is Point => record(value) && finite(value.
 const quad = (value: unknown): value is Quad => record(value) && finite(value.x) && finite(value.y) && finite(value.w) && finite(value.h) && value.w > 0 && value.h > 0;
 const unknownArray = (value: unknown): value is unknown[] => Array.isArray(value);
 const stringArray = (value: unknown): value is string[] => unknownArray(value) && value.every(item => typeof item === "string");
-const categoryKey = (value: unknown): value is Category => typeof value === "string" && Object.prototype.hasOwnProperty.call(CATEGORIES, value);
+export const categoryKey = (value: unknown): value is Category => typeof value === "string" &&
+  (Object.prototype.hasOwnProperty.call(CATEGORIES, value) || /^custom-[a-z0-9-]{1,80}$/.test(value));
+export const categoryStyle = (value: unknown): value is CategoryStyle => record(value) &&
+  typeof value.label === "string" && value.label.trim().length > 0 && value.label.length <= 60 &&
+  typeof value.color === "string" && typeof value.hex === "string" && /^#[0-9a-f]{6}$/i.test(value.hex) &&
+  typeof value.icon === "string" && /^[a-z0-9-]{1,60}$/.test(value.icon);
+export function defaultCategoryStyle(id: Category): CategoryStyle {
+  if (Object.prototype.hasOwnProperty.call(CATEGORIES, id)) return CATEGORIES[id as keyof typeof CATEGORIES];
+  return { label: "Unknown category", color: "gray", hex: "#94a3b8", icon: "tag" };
+}
 
 /** Reject invalid files rather than silently discarding annotations on the next save. */
 export function readSidecar(raw: string, pdfPath: string): Sidecar {
@@ -58,7 +70,8 @@ export function readSidecar(raw: string, pdfPath: string): Sidecar {
         (a.position !== undefined && !point(a.position)) ||
         (a.title !== undefined && typeof a.title !== "string") ||
         (a.comment !== undefined && typeof a.comment !== "string") ||
-        (a.tags !== undefined && !stringArray(a.tags))) {
+        (a.tags !== undefined && !stringArray(a.tags)) ||
+        (a.categoryStyle !== undefined && !categoryStyle(a.categoryStyle))) {
       throw new Error("An annotation contains invalid data.");
     }
     ids.add(a.id);
@@ -68,7 +81,7 @@ export function readSidecar(raw: string, pdfPath: string): Sidecar {
     else if (a.category !== undefined) throw new Error("Unknown category.");
     else category = typeof a.color === "string" && Object.prototype.hasOwnProperty.call(legacy, a.color) ? legacy[a.color] : "note";
     return { ...a, id: a.id, page: a.page, text: a.text, quads: a.quads, createdAt: a.createdAt, updatedAt: a.updatedAt,
-      position: a.position, title: a.title, comment: a.comment, tags: a.tags, category, color: CATEGORIES[category].color };
+      position: a.position, title: a.title, comment: a.comment, tags: a.tags, category, categoryStyle: a.categoryStyle, color: a.categoryStyle?.color ?? defaultCategoryStyle(category).color };
   });
   return { ...data, pdfPath, version: 2, annotations, notes: data.notes ?? "" };
 }

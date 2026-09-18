@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { Annotation, CATEGORIES } from "./model";
+import { Annotation, CategoryStyle } from "./model";
 
 /** A reading preview outside the scaled PDF; highlights remain pointer-transparent. */
 export class CommentPreview {
@@ -9,7 +9,7 @@ export class CommentPreview {
   private returnFocus: HTMLElement | null = null;
   private get win() { return this.root.ownerDocument.defaultView!; }
 
-  constructor(private root: HTMLElement, private viewport: HTMLElement) {
+  constructor(private root: HTMLElement, private viewport: HTMLElement, private categoryFor: (annotation: Annotation) => CategoryStyle) {
     this.el = root.createDiv({ cls: "pdfaw-comment-preview", attr: { role: "region", "aria-label": "Comments", tabindex: "0" } });
     this.el.hidden = true;
     this.el.onpointerenter = () => this.cancelHide();
@@ -33,7 +33,7 @@ export class CommentPreview {
     setIcon(close, "x"); close.onclick = () => this.hide();
     if (!annotations.length) this.el.createDiv({ text: "No comments on this page yet." });
     for (const annotation of annotations) {
-      const category = CATEGORIES[annotation.category];
+      const category = this.categoryFor(annotation);
       const item = this.el.createEl("article", { cls: "pdfaw-preview-item" });
       item.style.setProperty("--category", category.hex);
       const badge = item.createDiv({ cls: "pdfaw-preview-category" });

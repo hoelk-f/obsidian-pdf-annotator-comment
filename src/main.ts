@@ -1,10 +1,13 @@
 import { FileView, Menu, Notice, Plugin, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import * as pdfjs from "pdfjs-dist";
 import type { PDFDocumentProxy, PDFDocumentLoadingTask, RenderTask } from "pdfjs-dist";
-import { Annotation, Bounds, CARD_WIDTH, CATEGORIES, Category, PDF_SCALE, Point, Quad, Sidecar, connection, defaultPosition, fitCamera, readSidecar, sceneBounds } from "./model";
+import { Annotation, Bounds, CARD_WIDTH, Category, PDF_SCALE, Point, Quad, Sidecar, connection, defaultPosition, fitCamera, readSidecar, sceneBounds } from "./model";
 import { CommentDraft, CommentModal } from "./editor";
 import { selectionQuads } from "./selection";
 import { CommentPreview } from "./comment-preview";
+import { CategoryStore, readCategorySettings } from "./category-store";
+import { CategoryModal } from "./category-modal";
+import { PdfPicker, RemarkSettingsTab } from "./plugin-access";
 import workerSource from "embedded-pdf-worker";
 
 const VIEW_TYPE = "pdfaw-view";
@@ -75,7 +78,7 @@ export class PdfAnnotatorView extends FileView {
   private pageReady = false;
   private geometryFrame = 0;
 
-  constructor(leaf: WorkspaceLeaf) { super(leaf); }
+  constructor(leaf: WorkspaceLeaf, private categories: CategoryStore) { super(leaf); }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return this.file?.name ?? "Remark My Words"; }
   getIcon() { return "file-pen-line"; }
@@ -119,7 +122,7 @@ export class PdfAnnotatorView extends FileView {
     for (const [key, icon, label] of [["select", "mouse-pointer-2", "Select text"], ["hand", "hand", "Pan canvas"]]) {
       this.toolButtons.set(key, this.button(tools, icon, label, () => this.setTool(key as "select" | "hand")));
     }
-    this.button(tools, "message-square-plus", "Comment on selection", () => this.editSelection("note"));
+    this.button(tools, "message-square-plus", "Comment on selection", () => this.editSelection(this.categories.preferred()));
     const zoom = toolbar.createDiv({ cls: "pdfaw-tool-group pdfaw-zoom-controls" });
     this.button(zoom, "minus", "Zoom out", () => this.zoomBy(1 / 1.15));
     this.zoomLabel = zoom.createEl("button", { cls: "pdfaw-zoom-label", text: "100 %", attr: { title: "Zoom to 100%", "aria-label": "Zoom to 100 percent" } });
@@ -136,6 +139,7 @@ export class PdfAnnotatorView extends FileView {
     const readComments = this.button(right, "messages-square", "Read page comments", () => {
       this.commentPreview.show(this.pageAnnotations(), readComments.getBoundingClientRect(), readComments);
     }, "pdfaw-read-comments");
+    this.button(right, "tags", "Manage categories", () => new CategoryModal(this.app, this.categories).open());
     this.button(right, "sticky-note", "Document notes", () => {
       this.root.toggleClass("pdfaw-show-notes", !this.root.hasClass("pdfaw-show-notes"));
       if (this.root.hasClass("pdfaw-show-notes")) this.noteInput.focus();
@@ -163,11 +167,11 @@ export class PdfAnnotatorView extends FileView {
     this.renderFilters();
     this.selectionBar = this.root.createDiv({ cls: "pdfaw-selection-toolbar", attr: { role: "toolbar", "aria-label": "Comment on selection" } });
     this.selectionBar.hidden = true;
-    this.commentPreview = new CommentPreview(this.root, this.viewport);
-    for (const [key, category] of Object.entries(CATEGORIES)) {
-      const button = this.button(this.selectionBar, category.icon, category.label, () => this.editSelection(key as Category));
-      button.style.setProperty("--category", category.hex); button.onpointerdown = event => event.preventDefault();
-    }
+    this.commentPreview = new CommentPreview(this.root, this.viewport, annotation => this.categories.forAnnotation(annotation));
+    this.renderCategoryTools();
+    this.register(this.categories.subscribe(() => {
+      this.renderCategoryTools(); this.renderFilters(); this.renderAnnotations(); this.positionSelectionBar();
+    }));
     const minimap = this.viewport.createDiv({ cls: "pdfaw-minimap" });
     this.mini = svg(minimap, "svg", { class: "pdfaw-map", role: "img", "aria-label": "Canvas overview; click to navigate" });
     this.mini.onclick = event => {
@@ -233,7 +237,7 @@ export class PdfAnnotatorView extends FileView {
     this.registerDomEvent(this.pageEl, "contextmenu", event => {
       this.captureSelection(); if (!this.selection) return;
       event.preventDefault(); const menu = new Menu();
-      for (const [key, category] of Object.entries(CATEGORIES)) menu.addItem(item => item.setTitle(category.label).setIcon(category.icon).onClick(() => this.editSelection(key as Category)));
+      for (const category of this.categories.active()) menu.addItem(item => item.setTitle(category.label).setIcon(category.icon).onClick(() => this.editSelection(category.id)));
       menu.showAtMouseEvent(event);
     });
     this.registerDomEvent(this.root, "keydown", event => this.onKey(event));
@@ -266,7 +270,7 @@ export class PdfAnnotatorView extends FileView {
       this.loading = pdfjs.getDocument({ data: buffer, isEvalSupported: false });
       const pdf = await this.loading.promise;
       if (generation !== this.generation) { void pdf.destroy(); return; }
-      this.pdf = pdf; this.sidecar = data;
+      this.pdf = pdf; this.sidecar = data; this.renderFilters();
       this.noteInput.disabled = false; this.noteInput.value = data.notes; this.saveStatus.setText("Local to vault");
       this.pageTotal.setText(`/ ${pdf.numPages}`); this.pageInput.max = String(pdf.numPages);
       this.buildThumbnails(); await this.showPage(1);
@@ -396,26 +400,38 @@ export class PdfAnnotatorView extends FileView {
   private visibleAnnotations() { return this.pageAnnotations().filter(annotation => this.mode === "reading" || !this.filter || annotation.category === this.filter); }
   private position(annotation: Annotation): Point { return annotation.position ?? defaultPosition(this.pageAnnotations().indexOf(annotation), this.pageWidth); }
 
+  private renderCategoryTools() {
+    this.selectionBar.empty();
+    for (const category of this.categories.active()) {
+      const button = this.button(this.selectionBar, category.icon, category.label, () => this.editSelection(category.id));
+      button.setCssProps({ "--category": category.hex }); button.onpointerdown = event => event.preventDefault();
+    }
+  }
   private renderFilters() {
     this.filterBar.empty();
     const all = this.filterBar.createEl("button", { text: "All", cls: this.filter === null ? "is-active" : "" });
     all.setAttribute("aria-pressed", String(this.filter === null));
     all.onclick = () => { this.filter = null; this.renderFilters(); this.renderAnnotations(); };
-    for (const [key, category] of Object.entries(CATEGORIES)) {
-      const button = this.filterBar.createEl("button", { cls: this.filter === key ? "is-active" : "", attr: { "aria-pressed": String(this.filter === key) } });
+    const choices = this.categories.active();
+    for (const annotation of this.pageAnnotations()) {
+      if (!choices.some(item => item.id === annotation.category)) choices.push({ id: annotation.category, ...this.categories.forAnnotation(annotation) });
+    }
+    for (const category of choices) {
+      const button = this.filterBar.createEl("button", { cls: this.filter === category.id ? "is-active" : "", attr: { "aria-pressed": String(this.filter === category.id) } });
       button.style.setProperty("--category", category.hex);
       button.createSpan({ cls: "pdfaw-category-dot" }); button.createSpan({ text: category.label });
-      button.onclick = () => { this.filter = this.filter === key ? null : key as Category; this.renderFilters(); this.renderAnnotations(); };
+      button.onclick = () => { this.filter = this.filter === category.id ? null : category.id; this.renderFilters(); this.renderAnnotations(); };
     }
   }
   private renderAnnotations() {
     this.commentPreview.hide();
+    this.sidecar?.annotations.forEach(annotation => { annotation.categoryStyle = this.categories.forAnnotation(annotation); });
     this.pageAnnotations().forEach((annotation, index) => { annotation.position ??= defaultPosition(index, this.pageWidth); });
     this.pageEl.querySelector(".pdfaw-highlights")?.remove();
     const overlay = this.pageEl.createDiv({ cls: "pdfaw-highlights" });
     this.cards.forEach(card => this.resizeObserver?.unobserve(card)); this.cards.clear(); this.cardsEl.empty();
     for (const annotation of this.visibleAnnotations()) {
-      const category = CATEGORIES[annotation.category];
+      const category = this.categories.forAnnotation(annotation);
       for (const quad of annotation.quads) {
         const highlight = overlay.createDiv({ cls: `pdfaw-highlight${this.activeId === annotation.id ? " is-active" : ""}` });
         Object.assign(highlight.style, { left: `${quad.x}px`, top: `${quad.y}px`, width: `${quad.w}px`, height: `${quad.h}px`, backgroundColor: category.hex });
@@ -467,8 +483,8 @@ export class PdfAnnotatorView extends FileView {
     menu.addItem(item => item.setTitle("Edit").setIcon("pencil").onClick(() => this.editAnnotation(annotation)));
     menu.addItem(item => item.setTitle("Go to passage").setIcon("locate").onClick(() => this.focusAnnotation(annotation)));
     menu.addSeparator();
-    for (const [key, category] of Object.entries(CATEGORIES)) menu.addItem(item => item.setTitle(category.label).setIcon(category.icon).setChecked(annotation.category === key).onClick(() => {
-      annotation.category = key as Category; annotation.color = category.color; annotation.updatedAt = Date.now(); this.renderAnnotations(); void this.save();
+    for (const category of this.categories.active()) menu.addItem(item => item.setTitle(category.label).setIcon(category.icon).setChecked(annotation.category === category.id).onClick(() => {
+      annotation.category = category.id; annotation.categoryStyle = this.categories.style(category.id); annotation.color = category.color; annotation.updatedAt = Date.now(); this.renderAnnotations(); void this.save();
     }));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("Delete comment").setIcon("trash-2").onClick(() => {
@@ -481,8 +497,8 @@ export class PdfAnnotatorView extends FileView {
     const data = this.sidecar;
     new CommentModal(this.app, annotation, annotation.text, draft => {
       if (this.sidecar !== data) return;
-      Object.assign(annotation, draft, { color: CATEGORIES[draft.category].color, updatedAt: Date.now() }); this.renderAnnotations(); void this.save();
-    }).open();
+      Object.assign(annotation, draft, { color: this.categories.style(draft.category, annotation.categoryStyle).color, categoryStyle: this.categories.style(draft.category, annotation.categoryStyle), updatedAt: Date.now() }); this.renderAnnotations(); void this.save();
+    }, this.categories.choices(annotation)).open();
   }
   private editSelection(category: Category) {
     if (!this.selection || !this.sidecar) { new Notice("Select a passage in the PDF first."); return; }
@@ -491,10 +507,10 @@ export class PdfAnnotatorView extends FileView {
     new CommentModal(this.app, { category, title: "", comment: "", tags: [] }, selection.text, (draft: CommentDraft) => {
       if (this.sidecar !== data) return;
       const now = Date.now();
-      data.annotations.push({ id: crypto.randomUUID(), ...selection, ...draft, color: CATEGORIES[draft.category].color, createdAt: now, updatedAt: now });
+      data.annotations.push({ id: crypto.randomUUID(), ...selection, ...draft, color: this.categories.style(draft.category).color, categoryStyle: this.categories.style(draft.category), createdAt: now, updatedAt: now });
       if (this.filter && this.filter !== draft.category) { this.filter = null; this.renderFilters(); }
       this.clearSelection(); this.win.getSelection()?.removeAllRanges(); this.renderAnnotations(); if (this.mode === "canvas") this.fit(); void this.save();
-    }).open();
+    }, this.categories.active()).open();
   }
   private previewComment(event: PointerEvent) {
     if (this.mode !== "reading" || event.buttons || this.selectionPointer !== null || this.selection) {
@@ -641,7 +657,7 @@ export class PdfAnnotatorView extends FileView {
     this.links.replaceChildren();
     for (const annotation of this.visibleAnnotations()) {
       const card = this.cards.get(annotation.id); if (!card) continue;
-      const color = CATEGORIES[annotation.category].hex;
+      const color = this.categories.forAnnotation(annotation).hex;
       const { path, anchor } = connection({ ...this.position(annotation), width: CARD_WIDTH, height: card.offsetHeight }, annotation.quads[0]);
       svg(this.links, "path", { d: path, stroke: color, "stroke-width": 2, "stroke-dasharray": "8 7", "stroke-linecap": "round", fill: "none", "vector-effect": "non-scaling-stroke" });
       svg(this.links, "circle", { cx: anchor.x, cy: anchor.y, r: 3, fill: color });
@@ -653,7 +669,7 @@ export class PdfAnnotatorView extends FileView {
     svg(this.mini, "rect", { x: 0, y: 0, width: this.pageWidth, height: this.pageHeight, rx: 8, fill: "#687184", opacity: 0.6 });
     this.visibleAnnotations().forEach(annotation => {
       const p = this.position(annotation);
-      svg(this.mini, "rect", { x: p.x, y: p.y, width: CARD_WIDTH, height: this.cards.get(annotation.id)?.offsetHeight || 220, rx: 12, fill: CATEGORIES[annotation.category].hex, opacity: 0.8 });
+      svg(this.mini, "rect", { x: p.x, y: p.y, width: CARD_WIDTH, height: this.cards.get(annotation.id)?.offsetHeight || 220, rx: 12, fill: this.categories.forAnnotation(annotation).hex, opacity: 0.8 });
     });
     svg(this.mini, "rect", { x: -camera.x / camera.zoom, y: -camera.y / camera.zoom, width: this.viewport.clientWidth / camera.zoom, height: this.viewport.clientHeight / camera.zoom, fill: "#b8afff", "fill-opacity": 0.08, stroke: "#b8afff", "stroke-width": 1, "vector-effect": "non-scaling-stroke" });
   }
@@ -701,18 +717,25 @@ export class PdfAnnotatorView extends FileView {
 }
 
 export default class RemarkMyWordsPlugin extends Plugin {
+  private categories!: CategoryStore;
   async onload() {
-    this.registerView(VIEW_TYPE, leaf => new PdfAnnotatorView(leaf));
-    this.addCommand({ id: "open-pdf-in-annotator", name: "Open PDF", checkCallback: checking => {
-      const file = this.app.workspace.getActiveFile();
-      if (!file || file.extension.toLowerCase() !== "pdf") return false;
-      if (!checking) void this.app.workspace.getLeaf(false).setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
-      return true;
-    } });
+    const stored: unknown = await this.loadData();
+    this.categories = new CategoryStore(readCategorySettings(stored), categories => this.saveData({ categories }));
+    this.registerView(VIEW_TYPE, leaf => new PdfAnnotatorView(leaf, this.categories));
+    this.addCommand({ id: "open-pdf-in-annotator", name: "Open PDF", callback: () => this.openPdf() });
+    this.addCommand({ id: "manage-categories", name: "Manage categories", callback: () => new CategoryModal(this.app, this.categories).open() });
+    this.addRibbonIcon("file-pen-line", "Remark My Words", () => this.openPdf());
+    this.addSettingTab(new RemarkSettingsTab(this.app, this, this.categories, () => this.openPdf()));
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
       if (file instanceof TFile && file.extension.toLowerCase() === "pdf") menu.addItem(item => item.setTitle("Open in Remark My Words").setIcon("file-pen-line").onClick(() => {
         void this.app.workspace.getLeaf(false).setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
       }));
     }));
+  }
+  private openPdf() {
+    const open = (file: TFile) => { void this.app.workspace.getLeaf(false).setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true }); };
+    const active = this.app.workspace.getActiveFile();
+    if (active?.extension.toLowerCase() === "pdf") open(active);
+    else new PdfPicker(this.app, open).open();
   }
 }

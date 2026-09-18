@@ -144,3 +144,30 @@
 .pdfaw-editor-body { width: 100%; resize: vertical; padding: 12px; line-height: 1.6; }
 @media (max-width: 1000px) { .pdfaw-footer-help { display: none; } .pdfaw-toolbar { gap: 8px; } .pdfaw-tool-group + .pdfaw-tool-group { padding-left: 8px; } }
 @media (max-width: 700px) { .pdfaw-pages { flex-basis: 128px; } .pdfaw-thumbnails { padding: 0 6px 10px; } .pdfaw-label { display: none; } .pdfaw-header { gap: 10px; padding: 8px 10px; } .pdfaw-search input { width: 130px; } .pdfaw-minimap { width: 132px; } .pdfaw-minimap .pdfaw-map { width: 114px; height: 64px; } .pdfaw-hint { display: none; } .pdfaw-notes-panel { flex-basis: 220px; } }
+
+.pdfaw-category-modal { width: min(720px, 95vw); box-sizing: border-box; }
+.pdfaw-category-modal * { box-sizing: border-box; }
+.pdfaw-category-help { color: var(--text-muted); line-height: 1.5; }
+.pdfaw-category-list { max-height: 55vh; overflow-y: auto; padding: 2px; }
+.pdfaw-category-row { display: grid; grid-template-columns: 24px minmax(100px, 1fr) 56px minmax(100px, 140px) 32px; gap: 12px; align-items: end; padding: 14px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.pdfaw-category-row label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: var(--font-ui-small); }
+.pdfaw-category-row input[type="text"], .pdfaw-category-row select { width: 100%; min-width: 0; }
+.pdfaw-category-row input[type="color"] { width: 100%; min-height: 30px; padding: 2px; }
+.pdfaw-category-preview { display: flex; align-self: center; color: var(--category); }
+.pdfaw-category-delete { padding: 6px; color: var(--text-muted); }
+.pdfaw-category-delete:hover { color: var(--text-error); }
+.pdfaw-category-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.pdfaw-category-error { color: var(--text-error); margin: 12px 0; }
+.pdfaw-root .pdfaw-selection-toolbar { max-width: calc(100% - 16px); overflow-x: auto; }
+.pdfaw-root .pdfaw-selection-toolbar > button { flex-shrink: 0; }
+.pdfaw-root .pdfaw-filters { max-width: calc(100% - 24px); overflow-x: auto; }
+.pdfaw-root .pdfaw-filters > button { flex-shrink: 0; }
+@media (max-width: 500px) {
+  .pdfaw-category-row { grid-template-columns: 24px minmax(80px, 1fr) 48px 32px; gap: 8px; }
+  .pdfaw-category-name { grid-column: 2 / 4; }
+  .pdfaw-category-icon { grid-column: 2; grid-row: 2; }
+  .pdfaw-category-color { grid-column: 3; grid-row: 2; }
+  .pdfaw-category-delete { grid-column: 4; grid-row: 1; }
+}
+
+.pdfaw-category-preview svg, .pdfaw-category-delete svg { width: 18px; height: 18px; flex-shrink: 0; }

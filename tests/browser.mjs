@@ -1,3 +1,4 @@
+import { testCategories } from "./category-browser.mjs";
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
@@ -254,6 +255,7 @@ try {
     await evaluate(`(() => { const span=document.querySelector('.pdfaw-textlayer span');const r=document.createRange();r.selectNodeContents(span);getSelection().removeAllRanges();getSelection().addRange(r);view.captureSelection(); })()`);
     assert.ok(await evaluate(`(() => { const r=view.selectionBar.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth; })()`), `Selection toolbar stays on screen at ${width}px`);
   }
+  await testCategories({evaluate, until, cdp});
   await evaluate(`view.noteInput.value='Notiz vor Dokumentwechsel';view.noteInput.dispatchEvent(new Event('input'));view.onLoadFile(new TFile('Andere.pdf'))`);
   assert.equal(await evaluate('JSON.parse(storage.get("Forschungspapier.pdf.obsidian-annot.json")).notes'), 'Notiz vor Dokumentwechsel');
   assert.equal(await evaluate('view.sidecar.notes'), '');

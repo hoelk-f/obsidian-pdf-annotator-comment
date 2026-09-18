@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 — 2026-09-18
+- Keep the Open PDF command visible without an active PDF and offer a searchable vault PDF picker.
+- Add a ribbon shortcut and a searchable plugin settings page.
+- Add a vault-wide category manager for names, colors, icons, creation, and deletion while keeping the six existing defaults.
+- Preserve existing comments when categories are deleted and store category appearance with saved comments.
+- Update selection tools, filters, comment forms, canvas cards, and reading previews when categories change.
+
 ## 0.1.2 — 2026-09-18
 
 - See the GitHub release notes for the included changes.

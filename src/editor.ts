@@ -1,10 +1,10 @@
 import { App, Modal, Setting } from "obsidian";
-import { Annotation, CATEGORIES, Category } from "./model";
+import { Annotation, Category, CategoryDefinition } from "./model";
 
 export type CommentDraft = Pick<Annotation, "title" | "comment" | "tags" | "category">;
 
 export class CommentModal extends Modal {
-  constructor(app: App, private draft: CommentDraft, private quote: string, private submit: (draft: CommentDraft) => void) {
+  constructor(app: App, private draft: CommentDraft, private quote: string, private submit: (draft: CommentDraft) => void, private categories: CategoryDefinition[]) {
     super(app);
   }
 
@@ -14,7 +14,7 @@ export class CommentModal extends Modal {
     const draft = { ...this.draft };
     this.contentEl.createEl("blockquote", { text: this.quote });
     new Setting(this.contentEl).setName("Category").addDropdown(select => {
-      for (const [key, category] of Object.entries(CATEGORIES)) select.addOption(key, category.label);
+      for (const category of this.categories) select.addOption(category.id, category.label);
       select.setValue(draft.category).onChange(value => { draft.category = value as Category; });
     });
     const fieldId = `pdfaw-comment-${crypto.randomUUID()}`;

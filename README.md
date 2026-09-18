@@ -59,8 +59,8 @@ Copy the contents of `dist/remark-my-words/` into the plugin folder above.
 
 ## Get started
 
-1. Open a PDF in your vault.
-2. Run **Remark My Words: Open PDF** from the command palette, or choose **Open in Remark My Words** from the PDF's file menu.
+1. After installing, enable **Remark My Words** under **Settings > Community plugins**.
+2. Run **Remark My Words: Open PDF** from the command palette or click the pen-and-file ribbon icon. The active PDF opens immediately; otherwise choose a PDF from the vault. You can also right-click a PDF and choose **Open in Remark My Words**.
 3. Use the **book** icon for Reading or the **dashboard** icon for Canvas. Tooltips identify each control.
 4. Select text, click a category in the floating toolbar, and fill in **Add comment**. Right-clicking selected text also offers categories.
 5. In Reading, hover a highlighted passage to read its comment. The **Read page comments** button also works with a keyboard or touch input.
@@ -69,6 +69,19 @@ Copy the contents of `dist/remark-my-words/` into the plugin folder above.
 Navigate pages with thumbnails, arrows, or the page number. Search with Enter
 for the next matching page or Shift+Enter for the previous one. The **…** toolbar
 menu can reopen the document in Obsidian's native PDF viewer.
+
+## Customize categories
+
+Click the **tags** icon (**Manage categories**) in the PDF toolbar. The same
+manager is available from **Settings > Remark My Words** and the command palette.
+Add a category, change its name, color, or icon, or delete it; then choose
+**Save categories**. **Cancel** leaves the previous settings unchanged.
+
+The initial categories remain **Claim, Evidence, Method, Concept, Limitation,
+and Note**. Changes apply across PDFs in this vault and survive restarting
+Obsidian. Keep at least one category. Deleting a category removes it from new
+comment choices; existing comments keep their category and remain editable.
+An existing deleted category appears as **(deleted)** in the comment editor.
 
 ## Your data stays in your vault
 
