@@ -3,7 +3,7 @@
   "name": "obsidian-pdf-annotator-comment",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "PDF highlights (2 colors) + Word-style comment sidebar using a custom PDF view.",
+  "description": "A PDF canvas with movable, color-classified comments, linked text highlights, page previews and document notes.",
   "author": "You",
   "authorUrl": "",
   "isDesktopOnly": false

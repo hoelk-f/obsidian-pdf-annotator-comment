@@ -6,7 +6,10 @@
   "scripts": {
     "postinstall": "copy node_modules\\pdfjs-dist\\build\\pdf.worker.min.mjs .\\pdf.worker.min.mjs",
     "dev": "node esbuild.config.mjs",
-    "build": "node -e \"process.env.NODE_ENV='production'; import('./esbuild.config.mjs')\""
+    "build": "node -e \"process.env.NODE_ENV='production'; import('./esbuild.config.mjs')\"",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/model.test.mjs",
+    "test:browser": "node tests/browser.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.23.0",

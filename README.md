@@ -1,103 +1,128 @@
-# obsidian-pdf-annotator-comment
+# PDF Canvas für Obsidian
 
-An Obsidian plugin that provides a custom PDF reader with a Word-style sidebar
-for comments, highlights, and notes. It uses a custom PDF view (PDF.js) and a
-sidecar JSON file stored next to each PDF.
+Ein PDF-Reader mit einer frei verschiebbaren Arbeitsfläche: Die aktuelle PDF-Seite
+steht in der Mitte, Kommentare liegen als Karten daneben. Farbige, gestrichelte
+Linien verbinden jede Karte mit ihrer markierten Textstelle.
 
-## Features
+## Funktionen
 
-- Custom PDF view for `.pdf` files (separate from Obsidian's native viewer).
-- Command to open the current PDF in the annotator view.
-- Highlights with two colors: **Yellow** and **Red**.
-- Comments use **Blue** highlights and appear in the Comments tab.
-- Sidebar tabs: **Comments**, **Highlights**, **Notes**.
-- Click a sidebar item to jump to its position in the PDF.
-- Notes tab: free-form text saved per PDF.
-- Lazy rendering for better performance on large PDFs.
+- Dunkle Canvas-Ansicht mit Punktraster, Zoom, Handwerkzeug und klickbarer Minimap.
+- Sechs Kategorien: **Kritik**, **Frage**, **Positiv**, **Unklar**, **Literatur**, **Methode**.
+- Einheitliche Kategorienfarben für Textmarkierung, Kommentar und Verbindung.
+- Kommentare mit Titel, Text und Tags; frei platzierbare Karten mit gespeicherten Positionen.
+- Kategorienfilter, Seitenvorschauen, Seitennavigation und Volltextsuche nach Fundseiten.
+- Dokumentweite Notizen mit automatischer Speicherung.
+- Lokale JSON-Dateien im Vault; bestehende Markierungen und Notizen werden übernommen.
 
-## How it works
+## Bedienung
 
-- The plugin registers a custom view type (not the default PDF view).
-- Use the command palette to open a PDF in the annotator view.
-- Selections are captured from the PDF.js text layer.
-- Highlights and comments are stored in a sidecar file:
-  `<your-pdf>.obsidian-annot.json`.
-- Notes are saved in the same sidecar file.
-- The PDF is rendered using `pdfjs-dist` with a local worker file in the plugin folder.
+1. PDF im Vault öffnen und den Befehl **Open PDF in Annotator view** ausführen.
+   Alternativ im Dateikontextmenü **In PDF Canvas öffnen** wählen.
+2. Text im PDF auswählen. In der erscheinenden Werkzeugleiste oder per Rechtsklick
+   eine Kategorie wählen und den Kommentar speichern. Ohne Kommentartext wird
+   die ausgewählte Textstelle als Karte angezeigt.
+3. Karten an ihrem Kopf ziehen. Doppelklick öffnet den Editor; das Menü **…**
+   erlaubt Bearbeitung, Kategorienwechsel und Löschen.
+4. **↗ S. …** auf einer Karte zentriert die zugehörige Textstelle.
+5. Auf leerem Canvas ziehen oder das Handwerkzeug verwenden. Das Mausrad verschiebt
+   die Arbeitsfläche; **Strg/⌘ + Mausrad** zoomt um den Mauszeiger.
+6. **Alles einpassen** zeigt PDF und alle sichtbaren Karten. Die Minimap navigiert
+   auch zu Karten außerhalb des sichtbaren Bereichs.
 
-## Installation (manual)
+Jede PDF-Seite hat ihren eigenen Canvas mit ihren zugehörigen Kommentaren.
+Seitenwechsel erfolgen über die Vorschaubilder, Pfeile oder das Seitenzahlfeld.
+Die Suche springt mit Enter zur nächsten Fundseite, mit Umschalt+Enter zurück.
+Die Kategorienfilter gelten für die aktuelle Seite.
 
-1. Build the plugin (see Development below).
-2. In your vault, create:
-   `.obsidian/plugins/obsidian-pdf-annotator-comment/`
-3. Copy these files into that folder:
-   - `manifest.json`
-   - `main.js`
-   - `styles.css`
-   - `pdf.worker.min.mjs`
-4. Make sure the folder name matches the plugin ID:
-   `obsidian-pdf-annotator-comment`.
-5. Enable the plugin in Obsidian Settings -> Community plugins.
+| Taste | Aktion |
+| --- | --- |
+| V / H | Textauswahl / Handwerkzeug |
+| + / − | Vergrößern / verkleinern |
+| 0 | PDF und sichtbare Karten einpassen |
+| Bild auf / Bild ab | Vorherige / nächste Seite |
+| Strg/⌘ + F | Dokument durchsuchen |
+| Escape | Auswahl aufheben, zum Auswahlwerkzeug wechseln |
+| Pfeiltasten bei fokussierter Karte | Karte um 10 Einheiten verschieben; mit Umschalt um 40 |
+| Enter bei fokussierter Karte | Kommentar bearbeiten |
+| Strg/⌘ + Enter im Kommentarfeld | Kommentar speichern |
 
-## Usage
+## Installation
 
-1. Open any PDF in your vault.
-2. Run the command palette action: `Open PDF in Annotator view`.
-3. Select text inside the PDF.
-4. Right-click to open the context menu:
-   - Highlight (Yellow)
-   - Highlight (Red)
-   - Comment (Blue)...
-5. Use the sidebar tabs:
-   - **Comments**: blue comments only (edit/delete)
-   - **Highlights**: yellow/red highlights (delete)
-   - **Notes**: free-form notes for the PDF
+Nach `npm install` und `npm run build` diese vier Dateien nach
+`.obsidian/plugins/obsidian-pdf-annotator-comment/` im Vault kopieren:
 
-## Data format
+- `manifest.json`
+- `main.js`
+- `styles.css`
+- `pdf.worker.min.mjs`
 
-Sidecar file: `example.pdf.obsidian-annot.json`
+Dann das Plugin in Obsidian unter **Community plugins** aktivieren bzw. neu laden.
+Der bestehende Plugin-Identifier und der bisherige Öffnungsbefehl bleiben gleich.
+Die Obsidian-PDF-Standardansicht bleibt über das Menü **…** erreichbar.
 
-- `pdfPath`: the path to the PDF inside the vault
-- `annotations`: list of highlights/comments with page, quad bounds, and text
-- `notes`: free-form notes text (optional)
+## Architektur und Repository-Kontext
 
-This file is created automatically on first open.
+Das ursprüngliche Repo bestand aus einer einzelnen TypeScript-Datei mit einem
+eigenen PDF.js-Reader, pixelbasierten Markierungen und einer festen Seitenleiste.
+Der Umbau verwendet weiterhin PDF.js und die bestehenden Sidecar-Dateien:
 
-## Development
+- `src/main.ts`: Obsidian-Integration, PDF-/Text-Layer, Seitenvorschauen,
+  Canvas-Kamera, Interaktion, SVG-Verbindungen und serialisierte Speicherung.
+- `src/model.ts`: Kategorien, Datenformat, Migration und Geometriefunktionen.
+- `src/editor.ts`: Kommentar-Dialog mit Titel, Kategorie, Text und Tags.
+- `styles.css`: vollständig auf das Plugin begrenzte Oberfläche.
+- `tests/`: Daten-/Geometrietests und Browsertest mit echter PDF.js-Darstellung.
+- `main.js`: mit esbuild erzeugtes Plugin-Bundle.
 
-Requirements:
-- Node.js + npm
+Nur die aktuelle PDF-Seite wird groß gerendert; Vorschaubilder werden bei Bedarf
+geladen. Seitenwechsel brechen veraltete Renderaufträge ab. PDF-Koordinaten bleiben
+bei der bisherigen Skala 1,35; eine separate Canvas-Transformation übernimmt Zoom
+und Verschiebung. So bleiben alte Markierungen unverändert an ihrer Textstelle.
 
-Install dependencies:
+## Speicherung
 
-```bash
+Die Datei `beispiel.pdf.obsidian-annot.json` enthält:
+
+- `version: 2`, `pdfPath`, `notes` und `annotations`.
+- Pro Annotation: `id`, `page` (ab 1), `quads`, `text`, `color`, `category`,
+  optionale Felder `title`, `comment`, `tags`, `position`, sowie Zeitstempel.
+- `position: { x, y }` relativ zur linken oberen Ecke der PDF-Seite.
+  Negative Werte sind erlaubt. Kartenpositionen sind unabhängig vom Zoom.
+
+Version 1 wird beim Lesen im Speicher übernommen und bei der nächsten Änderung
+als Version 2 gespeichert. Rot → Kritik, Gelb → Unklar, Grün → Positiv, Blau → Methode.
+Beschädigte oder unbekannte Dateien werden nicht überschrieben. Neue Sidecar-Dateien
+entstehen erst bei einer Änderung. Schreibvorgänge innerhalb einer Ansicht werden
+serialisiert; ausstehende Notizen werden beim Schließen und Dokumentwechsel gespeichert.
+
+## Entwicklung und Prüfung
+
+```sh
 npm install
-```
-
-Build:
-
-```bash
+npm run typecheck
+npm test
 npm run build
-```
-
-Watch (dev):
-
-```bash
 npm run dev
 ```
 
-Notes:
-- `postinstall` copies `pdf.worker.min.mjs` from `pdfjs-dist` into the repo root.
-- `main.js` is the bundled output from `src/main.ts`.
+`npm run test:browser` startet einen lokalen Testserver und einen unsichtbaren
+Edge-Browser mit temporärem Profil. Mit `BROWSER_PATH` lässt sich eine andere
+Chromium-Browserinstallation angeben. Dafür ist keine Browser-Testbibliothek nötig.
+Der Test verwendet eine erzeugte zweiseitige PDF und eine nachgebildete Obsidian-API;
+er greift nicht auf einen echten Vault zu. Er prüft Textauswahl, Kommentare, Drag-and-drop
+bei Zoom, erneutes Laden, Kategorienfilter, Suche, Notizen beim Dokumentwechsel
+und den Schutz beschädigter Dateien. Ein Screenshot entsteht unter
+`.test-artifacts/canvas.png`.
 
-## Compatibility
+## Aktuelle Grenzen
 
-- Minimum Obsidian version: `1.4.0` (see `manifest.json`)
+- Seitenweiser Canvas, keine gemeinsame Fläche mit allen PDF-Seiten gleichzeitig.
+- Anmerkungen liegen in der JSON-Datei; kein Export als native PDF-Annotationen.
+- Textauswahl und Suche benötigen eine PDF-Textebene; keine OCR für reine Scans.
+- Suche navigiert nach Fundseiten; die Hervorhebung einzelner PDF-Textspannen ist
+  bei über mehrere Spannen verteilten Suchphrasen eingeschränkt.
+- Gleichzeitige Bearbeitung derselben PDF in mehreren Ansichten oder Geräten
+  wird nicht zusammengeführt.
+- Browsertests ersetzen keinen abschließenden Test im Obsidian-Host.
 
-## Known limitations
-
-- Rendering is fully custom and does not reuse Obsidian's native PDF viewer.
-
-## License
-
-MIT License. See `LICENSE`.
+MIT-Lizenz, siehe `LICENSE`.
