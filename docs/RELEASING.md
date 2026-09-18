@@ -57,6 +57,7 @@ the release has been published.
 - **Checks fail before tagging:** fix the issue and rerun `npm run release`. Version/changelog edits remain available for inspection.
 - **Merge conflicts:** the attempted merge is aborted. Your work is retained in a checkpoint commit. Merge `origin/main`, resolve the conflicts, commit, and rerun.
 - **Push fails after tagging:** keep the existing tag, resolve authentication or remote divergence, and use the resume command below if HEAD still matches the tag. A changed release commit needs a new version; the script does not move published tags.
+- **No release workflow starts:** open **Actions > Publish release > Run workflow**, leave the branch on `main`, and enter the existing tag (for example `0.1.0`). The recovery workflow checks out that exact tag and publishes its assets. Keep the tag unchanged. The script reports a missing workflow after three minutes rather than waiting the full timeout.
 - **Actions fails:** inspect the linked workflow run and use GitHub's **Re-run failed jobs** for transient errors. Source fixes require a new release version. Draft assets can be retried; existing public release assets are never overwritten.
 - **Polling times out:** the workflow may still succeed. Check Actions or resume waiting with the exact version:
 

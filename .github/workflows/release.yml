@@ -1,21 +1,38 @@
-﻿name: Publish release
+name: Publish release
+run-name: Publish release ${{ inputs.version || github.ref_name }}
 
 on:
   push:
     tags: ['*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag (for example 0.1.0)
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ inputs.version || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.version || github.ref_name }}
     steps:
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw 'Release tag must be an exact x.y.z version without a v prefix.'
+          }
       - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.version || github.ref_name }}
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -26,13 +43,10 @@ jobs:
       - run: npm run test:release
       - run: npm run test:browser
       - run: npm run package:release
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
       - name: Publish verified installable assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "$RELEASE_TAG" --json isDraft > release-state.json; then

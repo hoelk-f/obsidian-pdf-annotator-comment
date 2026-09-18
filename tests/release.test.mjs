@@ -145,3 +145,18 @@ test('publication polling requires all uploaded assets, reports failed workflows
   }), /workflow failed/);
   await assert.rejects(waitForRelease('0.1.0', 'sha', {timeout: 0}), /Timed out/);
 });
+
+
+test('missing workflow stops with recovery instructions; manual recovery is recognized', async () => {
+  const response = body => ({status: 200, ok: true, json: async () => body});
+  await assert.rejects(waitForRelease('0.1.0', 'sha', {
+    workflowStartTimeout: 0,
+    fetcher: async url => url.includes('/runs?') ? response({workflow_runs: []}) : {status: 404},
+    log() {},
+  }), /No release workflow started.*Run workflow/);
+  await assert.rejects(waitForRelease('0.1.0', 'sha', {
+    workflowStartTimeout: 0,
+    fetcher: async url => url.includes('/runs?') ? response({workflow_runs: [{event: 'workflow_dispatch', head_branch: 'main', head_sha: 'different-workflow-commit', display_title: 'Publish release 0.1.0', status: 'completed', conclusion: 'failure', html_url: 'https://example.invalid/manual-run'}]}) : {status: 404},
+    log() {},
+  }), /workflow failed/);
+});

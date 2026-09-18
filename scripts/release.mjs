@@ -92,7 +92,7 @@ async function updateChangelog(root, version) {
   await writeFile(file, text);
 }
 
-export async function waitForRelease(version, sha, { fetcher = fetch, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), timeout = 15 * 60_000, log = console.log } = {}) {
+export async function waitForRelease(version, sha, { fetcher = fetch, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), timeout = 15 * 60_000, workflowStartTimeout = 3 * 60_000, now = Date.now, log = console.log } = {}) {
   const base = `https://api.github.com/repos/${REPOSITORY}`;
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'remark-my-words-release' };
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
@@ -103,9 +103,9 @@ export async function waitForRelease(version, sha, { fetcher = fetch, sleep = ms
     if (!response.ok) throw new Error(`GitHub API returned ${response.status}. Check https://github.com/${REPOSITORY}/actions and resume with npm run release -- ${version} --resume. GH_TOKEN can be used if the anonymous API limit was reached.`);
     return response.json();
   }
-  const started = Date.now();
+  const started = now();
   let attempt = 0;
-  while (Date.now() - started < timeout) {
+  while (now() - started < timeout) {
     const release = await get(`/releases/tags/${version}`);
     if (release && !release.draft && !release.prerelease && assets.every(name => release.assets?.some(asset => asset.name === name && asset.state === 'uploaded' && asset.size > 0))) {
       log(`Published: ${release.html_url}`);
@@ -114,8 +114,11 @@ export async function waitForRelease(version, sha, { fetcher = fetch, sleep = ms
     }
     // Avoid using the public API's hourly allowance on two requests per poll.
     if (attempt++ % 3 === 0) {
-      const runs = await get(`/actions/workflows/release.yml/runs?event=push&head_sha=${encodeURIComponent(sha)}&per_page=30`);
-      const run = runs?.workflow_runs?.find(run => run.head_branch === version);
+      const runs = await get(`/actions/workflows/release.yml/runs?per_page=30`);
+      const run = runs?.workflow_runs?.find(run =>
+        (run.event === 'workflow_dispatch' && run.display_title === `Publish release ${version}`) ||
+        (run.head_branch === version && (!run.head_sha || run.head_sha === sha)));
+      if (!run && now() - started >= workflowStartTimeout) throw new Error(`No release workflow started for ${version}. The tag exists, but a tag alone is not a published release. Open https://github.com/${REPOSITORY}/actions/workflows/release.yml, choose Run workflow on main, and enter version ${version}. Keep the existing tag; do not create another version just to retry publication.`);
       if (run?.status === 'completed' && run.conclusion !== 'success') throw new Error(`The release workflow failed (${run.conclusion}): ${run.html_url}. Nothing was reported as published. Fix the failure or rerun the workflow, then use npm run release -- ${version} --resume.`);
     }
     log(`Waiting for GitHub to publish ${version} (checks, build, and asset upload)...`);
