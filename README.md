@@ -16,7 +16,7 @@ notes become movable cards connected to the original text.
 | --- | --- |
 | Focus on one PDF page with normal scrolling. | Arrange comment cards around the PDF. |
 | Select a passage and add a comment from the floating toolbar. | Follow colored connectors back to the source passage. |
-| Hover a highlight to read its comment. | Pan, zoom, filter categories, and navigate with the minimap. |
+| Hover a highlight to read, edit, or delete its comment. | Pan, zoom, filter categories, and navigate with the minimap. |
 | Keep your reading position when saving a comment. | Keep your card positions when switching modes. |
 
 Classify annotations as **Claim**, **Evidence**, **Method**, **Concept**,

@@ -1,6 +1,6 @@
 {
   "name": "remark-my-words",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -32,7 +32,7 @@
   "dependencies": {
     "pdfjs-dist": "4.10.38"
   },
-  "description": "Read, annotate, and connect PDF passages on a visual canvas in Obsidian.",
+  "description": "Annotate PDFs for research and literature review with categorized comments, reading mode, and a visual note canvas.",
   "author": "Florian Hölken",
   "license": "MIT",
   "repository": {

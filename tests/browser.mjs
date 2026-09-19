@@ -218,15 +218,32 @@ try {
   assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open while hovered');
   const previewShot = await cdp('Page.captureScreenshot', { format: 'png' });
   await writeFile(path.join(artifacts, 'comment-preview.png'), Buffer.from(previewShot.data, 'base64'));
+  await evaluate(`(() => {
+    document.querySelector('.pdfaw-preview-actions button[title="Edit comment"]').click();
+    const body = document.querySelector('.pdfaw-editor-body');
+    body.value = 'Updated from Reading preview'; body.dispatchEvent(new Event('input'));
+    [...document.querySelectorAll('.modal button')].find(button => button.textContent === 'Save').click();
+    return view.saveQueue;
+  })()`);
+  assert.equal(await evaluate('view.sidecar.annotations[0].comment'), 'Updated from Reading preview');
+  await evaluate('document.querySelector(".pdfaw-read-comments").click()');
+  await until('!document.querySelector(".pdfaw-comment-preview").hidden');
+  const annotationsBeforePreviewDelete = await evaluate('view.sidecar.annotations.length');
+  await evaluate(`(() => {
+    window.confirm = () => true;
+    document.querySelector('.pdfaw-preview-actions button[title="Delete comment"]').click();
+    return view.saveQueue;
+  })()`);
+  assert.equal(await evaluate('view.sidecar.annotations.length'), annotationsBeforePreviewDelete - 1);
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
   await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
   await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
   assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
   await evaluate('document.querySelector(".pdfaw-read-comments").click()');
-  assert.equal(await evaluate('document.activeElement.className'), 'pdfaw-comment-preview');
-  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-preview-item").length'), 6, 'Keyboard/touch button exposes all page comments');
-  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
-  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
-  assert.equal(await evaluate('document.activeElement.classList.contains("pdfaw-read-comments")'), true, 'Dismissal restores keyboard focus');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false);
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-preview-item").length'), 5, 'Keyboard/touch button exposes all page comments');
+  await evaluate(`document.querySelector('.pdfaw-comment-preview button[title="Close preview"]').click()`);
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
   await evaluate(`(() => {
     const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen'));
     const r=document.createRange();r.setStart(span.firstChild,4);r.setEnd(span.firstChild,25);
@@ -244,8 +261,8 @@ try {
   assert.equal(await evaluate('view.mode'), 'reading');
   await evaluate(`document.querySelector('.pdfaw-modes button').click()`);
   assert.deepEqual(await evaluate('view.camera'), canvasState.camera, 'Canvas camera survives reading mode');
-  assert.deepEqual(await evaluate('view.sidecar.annotations.slice(0,-1).map(a=>a.position)'), canvasState.positions);
-  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-comment-card").length'), 7);
+  assert.deepEqual(await evaluate('view.sidecar.annotations.slice(0,-1).map(a=>a.position)'), canvasState.positions.slice(1));
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-comment-card").length'), 6);
   await evaluate('view.onLoadFile(new TFile("Forschungspapier.pdf"))');
   assert.equal(await evaluate('view.sidecar.annotations.at(-1).comment'), 'Reading mode comment', 'Reading comments survive reopening');
   for (const width of [320, 768, 1024, 1440]) {

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.1 — 2026-09-19
+- Let readers edit or delete a comment directly from its Reading-mode hover preview.
+
 ## 0.2.0 — 2026-09-18
 - Keep the Open PDF command visible without an active PDF and offer a searchable vault PDF picker.
 - Add a ribbon shortcut and a searchable plugin settings page.

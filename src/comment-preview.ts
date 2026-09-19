@@ -9,7 +9,12 @@ export class CommentPreview {
   private returnFocus: HTMLElement | null = null;
   private get win() { return this.root.ownerDocument.defaultView!; }
 
-  constructor(private root: HTMLElement, private viewport: HTMLElement, private categoryFor: (annotation: Annotation) => CategoryStyle) {
+  constructor(
+    private root: HTMLElement,
+    private viewport: HTMLElement,
+    private categoryFor: (annotation: Annotation) => CategoryStyle,
+    private actions: { edit: (annotation: Annotation) => void; remove: (annotation: Annotation) => void }
+  ) {
     this.el = root.createDiv({ cls: "pdfaw-comment-preview", attr: { role: "region", "aria-label": "Comments", tabindex: "0" } });
     this.el.hidden = true;
     this.el.onpointerenter = () => this.cancelHide();
@@ -41,6 +46,16 @@ export class CommentPreview {
       if (annotation.title) item.createEl("h3", { text: annotation.title });
       item.createDiv({ cls: "pdfaw-preview-body", text: annotation.comment?.trim() || annotation.text });
       if (annotation.tags?.length) item.createDiv({ cls: "pdfaw-preview-tags", text: annotation.tags.join(" · ") });
+      const actions = item.createDiv({ cls: "pdfaw-preview-actions" });
+      const edit = actions.createEl("button", { text: "Edit", attr: { type: "button", title: "Edit comment", "aria-label": "Edit comment" } });
+      setIcon(edit, "pencil");
+      edit.onclick = () => { this.hide(); this.actions.edit(annotation); };
+      const remove = actions.createEl("button", { text: "Delete", attr: { type: "button", title: "Delete comment", "aria-label": "Delete comment" } });
+      setIcon(remove, "trash-2");
+      remove.onclick = () => {
+        if (!this.win.confirm("Delete this comment?")) return;
+        this.hide(); this.actions.remove(annotation);
+      };
     }
     const view = this.viewport.getBoundingClientRect(), root = this.root.getBoundingClientRect();
     this.el.style.width = `${Math.min(360, view.width - 16)}px`;

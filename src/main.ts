@@ -167,7 +167,12 @@ export class PdfAnnotatorView extends FileView {
     this.renderFilters();
     this.selectionBar = this.root.createDiv({ cls: "pdfaw-selection-toolbar", attr: { role: "toolbar", "aria-label": "Comment on selection" } });
     this.selectionBar.hidden = true;
-    this.commentPreview = new CommentPreview(this.root, this.viewport, annotation => this.categories.forAnnotation(annotation));
+    this.commentPreview = new CommentPreview(
+      this.root,
+      this.viewport,
+      annotation => this.categories.forAnnotation(annotation),
+      { edit: annotation => this.editAnnotation(annotation), remove: annotation => this.deleteAnnotation(annotation) }
+    );
     this.renderCategoryTools();
     this.register(this.categories.subscribe(() => {
       this.renderCategoryTools(); this.renderFilters(); this.renderAnnotations(); this.positionSelectionBar();
@@ -487,17 +492,20 @@ export class PdfAnnotatorView extends FileView {
       annotation.category = category.id; annotation.categoryStyle = this.categories.style(category.id); annotation.color = category.color; annotation.updatedAt = Date.now(); this.renderAnnotations(); void this.save();
     }));
     menu.addSeparator();
-    menu.addItem(item => item.setTitle("Delete comment").setIcon("trash-2").onClick(() => {
-      if (!this.sidecar) return;
-      this.sidecar.annotations = this.sidecar.annotations.filter(item => item.id !== annotation.id); this.renderAnnotations(); void this.save();
-    }));
+    menu.addItem(item => item.setTitle("Delete comment").setIcon("trash-2").onClick(() => this.deleteAnnotation(annotation)));
     menu.showAtPosition(this.menuPosition(element));
+  }
+  private deleteAnnotation(annotation: Annotation) {
+    if (!this.sidecar?.annotations.some(item => item.id === annotation.id)) return;
+    this.sidecar.annotations = this.sidecar.annotations.filter(item => item.id !== annotation.id);
+    if (this.activeId === annotation.id) this.activeId = null;
+    this.commentPreview.hide(); this.renderAnnotations(); void this.save();
   }
   private editAnnotation(annotation: Annotation) {
     const data = this.sidecar;
     new CommentModal(this.app, annotation, annotation.text, draft => {
       if (this.sidecar !== data) return;
-      Object.assign(annotation, draft, { color: this.categories.style(draft.category, annotation.categoryStyle).color, categoryStyle: this.categories.style(draft.category, annotation.categoryStyle), updatedAt: Date.now() }); this.renderAnnotations(); void this.save();
+      Object.assign(annotation, draft, { color: this.categories.style(draft.category, annotation.categoryStyle).color, categoryStyle: this.categories.style(draft.category, annotation.categoryStyle), updatedAt: Date.now() }); this.commentPreview.hide(); this.renderAnnotations(); void this.save();
     }, this.categories.choices(annotation)).open();
   }
   private editSelection(category: Category) {

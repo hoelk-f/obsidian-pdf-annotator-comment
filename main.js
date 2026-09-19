@@ -22178,10 +22178,11 @@ function selectionQuads(range, layer, page, zoom) {
 // src/comment-preview.ts
 var import_obsidian2 = require("obsidian");
 var CommentPreview = class {
-  constructor(root, viewport, categoryFor) {
+  constructor(root, viewport, categoryFor, actions) {
     this.root = root;
     this.viewport = viewport;
     this.categoryFor = categoryFor;
+    this.actions = actions;
     this.key = "";
     this.returnFocus = null;
     this.el = root.createDiv({ cls: "pdfaw-comment-preview", attr: { role: "region", "aria-label": "Comments", tabindex: "0" } });
@@ -22226,6 +22227,20 @@ var CommentPreview = class {
       if (annotation.title) item.createEl("h3", { text: annotation.title });
       item.createDiv({ cls: "pdfaw-preview-body", text: annotation.comment?.trim() || annotation.text });
       if (annotation.tags?.length) item.createDiv({ cls: "pdfaw-preview-tags", text: annotation.tags.join(" \xB7 ") });
+      const actions = item.createDiv({ cls: "pdfaw-preview-actions" });
+      const edit = actions.createEl("button", { text: "Edit", attr: { type: "button", title: "Edit comment", "aria-label": "Edit comment" } });
+      (0, import_obsidian2.setIcon)(edit, "pencil");
+      edit.onclick = () => {
+        this.hide();
+        this.actions.edit(annotation);
+      };
+      const remove = actions.createEl("button", { text: "Delete", attr: { type: "button", title: "Delete comment", "aria-label": "Delete comment" } });
+      (0, import_obsidian2.setIcon)(remove, "trash-2");
+      remove.onclick = () => {
+        if (!this.win.confirm("Delete this comment?")) return;
+        this.hide();
+        this.actions.remove(annotation);
+      };
     }
     const view = this.viewport.getBoundingClientRect(), root = this.root.getBoundingClientRect();
     this.el.style.width = `${Math.min(360, view.width - 16)}px`;
@@ -22656,7 +22671,12 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
     this.renderFilters();
     this.selectionBar = this.root.createDiv({ cls: "pdfaw-selection-toolbar", attr: { role: "toolbar", "aria-label": "Comment on selection" } });
     this.selectionBar.hidden = true;
-    this.commentPreview = new CommentPreview(this.root, this.viewport, (annotation) => this.categories.forAnnotation(annotation));
+    this.commentPreview = new CommentPreview(
+      this.root,
+      this.viewport,
+      (annotation) => this.categories.forAnnotation(annotation),
+      { edit: (annotation) => this.editAnnotation(annotation), remove: (annotation) => this.deleteAnnotation(annotation) }
+    );
     this.renderCategoryTools();
     this.register(this.categories.subscribe(() => {
       this.renderCategoryTools();
@@ -23118,19 +23138,23 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
       void this.save();
     }));
     menu.addSeparator();
-    menu.addItem((item) => item.setTitle("Delete comment").setIcon("trash-2").onClick(() => {
-      if (!this.sidecar) return;
-      this.sidecar.annotations = this.sidecar.annotations.filter((item2) => item2.id !== annotation.id);
-      this.renderAnnotations();
-      void this.save();
-    }));
+    menu.addItem((item) => item.setTitle("Delete comment").setIcon("trash-2").onClick(() => this.deleteAnnotation(annotation)));
     menu.showAtPosition(this.menuPosition(element));
+  }
+  deleteAnnotation(annotation) {
+    if (!this.sidecar?.annotations.some((item) => item.id === annotation.id)) return;
+    this.sidecar.annotations = this.sidecar.annotations.filter((item) => item.id !== annotation.id);
+    if (this.activeId === annotation.id) this.activeId = null;
+    this.commentPreview.hide();
+    this.renderAnnotations();
+    void this.save();
   }
   editAnnotation(annotation) {
     const data = this.sidecar;
     new CommentModal(this.app, annotation, annotation.text, (draft) => {
       if (this.sidecar !== data) return;
       Object.assign(annotation, draft, { color: this.categories.style(draft.category, annotation.categoryStyle).color, categoryStyle: this.categories.style(draft.category, annotation.categoryStyle), updatedAt: Date.now() });
+      this.commentPreview.hide();
       this.renderAnnotations();
       void this.save();
     }, this.categories.choices(annotation)).open();
