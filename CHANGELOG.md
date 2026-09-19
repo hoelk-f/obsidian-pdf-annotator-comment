@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 — 2026-09-19
+
+- Keep Reading-mode comment previews open when hidden canvas cards report size changes after editing or deleting comments.
+- Cover immediate preview reopening, keyboard focus restoration, and actual viewport resizing in the browser regression tests.
+
 ## 0.2.1 — 2026-09-19
 - Let readers edit or delete a comment directly from its Reading-mode hover preview.
 

@@ -247,7 +247,13 @@ export class PdfAnnotatorView extends FileView {
     });
     this.registerDomEvent(this.root, "keydown", event => this.onKey(event));
     this.registerDomEvent(this.contentEl.ownerDocument, "keydown", event => { if (event.key === "Escape") this.commentPreview.hide(); });
-    this.resizeObserver = new ResizeObserver(() => { if (this.mode === "reading") this.applyCamera(); else this.queueGeometry(); });
+    this.resizeObserver = new ResizeObserver(entries => {
+      if (this.mode === "reading") {
+        // Rebuilding hidden canvas cards also sends resize notifications.
+        // Only a viewport resize changes the Reading layout or its previews.
+        if (entries.some(entry => entry.target === this.viewport)) this.applyCamera();
+      } else this.queueGeometry();
+    });
     this.resizeObserver.observe(this.viewport);
     this.register(() => this.resizeObserver?.disconnect());
   }

@@ -218,32 +218,53 @@ try {
   assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open while hovered');
   const previewShot = await cdp('Page.captureScreenshot', { format: 'png' });
   await writeFile(path.join(artifacts, 'comment-preview.png'), Buffer.from(previewShot.data, 'base64'));
+  // Reopen in the same task as saving/deleting. New hidden canvas cards still
+  // have pending ResizeObserver notifications, which must not close Reading previews.
   await evaluate(`(() => {
     document.querySelector('.pdfaw-preview-actions button[title="Edit comment"]').click();
     const body = document.querySelector('.pdfaw-editor-body');
     body.value = 'Updated from Reading preview'; body.dispatchEvent(new Event('input'));
     [...document.querySelectorAll('.modal button')].find(button => button.textContent === 'Save').click();
+    document.querySelector('.pdfaw-read-comments').click();
     return view.saveQueue;
   })()`);
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('view.sidecar.annotations[0].comment'), 'Updated from Reading preview');
-  await evaluate('document.querySelector(".pdfaw-read-comments").click()');
-  await until('!document.querySelector(".pdfaw-comment-preview").hidden');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open after editing and hidden-card resize notifications');
+  assert.equal(await evaluate('document.activeElement.className'), 'pdfaw-comment-preview', 'Opening page comments focuses the preview');
   const annotationsBeforePreviewDelete = await evaluate('view.sidecar.annotations.length');
   await evaluate(`(() => {
-    window.confirm = () => true;
-    document.querySelector('.pdfaw-preview-actions button[title="Delete comment"]').click();
+    const confirm = window.confirm;
+    try {
+      window.confirm = () => true;
+      document.querySelector('.pdfaw-preview-actions button[title="Delete comment"]').click();
+      window.previewClosedAfterDelete = document.querySelector('.pdfaw-comment-preview').hidden;
+      document.querySelector('.pdfaw-read-comments').click();
+    } finally { window.confirm = confirm; }
     return view.saveQueue;
   })()`);
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('view.sidecar.annotations.length'), annotationsBeforePreviewDelete - 1);
-  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
+  assert.equal(await evaluate('window.previewClosedAfterDelete'), true, 'Deleting closes the original preview');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open after deleting and hidden-card resize notifications');
+  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-preview-item").length'), 5, 'Keyboard/touch button exposes all page comments');
+  assert.equal(await evaluate('document.activeElement.className'), 'pdfaw-comment-preview');
   await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
   await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
   assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
+  assert.equal(await evaluate('document.activeElement.classList.contains("pdfaw-read-comments")'), true, 'Escape restores focus to the page-comments button');
   await evaluate('document.querySelector(".pdfaw-read-comments").click()');
-  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false);
-  assert.equal(await evaluate('document.querySelectorAll(".pdfaw-preview-item").length'), 5, 'Keyboard/touch button exposes all page comments');
   await evaluate(`document.querySelector('.pdfaw-comment-preview button[title="Close preview"]').click()`);
   assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true);
+  assert.equal(await evaluate('document.activeElement.classList.contains("pdfaw-read-comments")'), true, 'Close restores focus to the page-comments button');
+  await evaluate(`(() => {
+    document.querySelector('.pdfaw-read-comments').click();
+    document.querySelector('button[title="Toggle page sidebar"]').click();
+  })()`);
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'An actual viewport resize still dismisses the preview');
+  await evaluate(`document.querySelector('button[title="Toggle page sidebar"]').click()`);
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   await evaluate(`(() => {
     const span=[...document.querySelectorAll('.pdfaw-textlayer span')].find(s=>s.textContent.includes('Gewohnheiten spielen'));
     const r=document.createRange();r.setStart(span.firstChild,4);r.setEnd(span.firstChild,25);
