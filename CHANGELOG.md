@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 — 2026-09-19
+
+- See the GitHub release notes for the included changes.
+
 ## 0.2.2 — 2026-09-19
 
 - Keep Reading-mode comment previews open when hidden canvas cards report size changes after editing or deleting comments.
