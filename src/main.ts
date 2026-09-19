@@ -70,6 +70,7 @@ export class PdfAnnotatorView extends FileView {
   private filter: Category | null = null;
   private selection: { page: number; text: string; quads: Quad[] } | null = null;
   private selectionPointer: number | null = null;
+  private commentPress: { pointer: number; start: Point; dragged: boolean } | null = null;
   private activeId: string | null = null;
   private gesture: { pointer: number; start: Point; origin: Point; card?: Annotation; element: HTMLElement } | null = null;
   private searchPages: number[] = [];
@@ -211,16 +212,25 @@ export class PdfAnnotatorView extends FileView {
     this.registerDomEvent(this.viewport, "pointerdown", event => this.startPan(event));
     this.registerDomEvent(this.pageEl, "pointerdown", event => {
       if (event.button === 0 && this.tool === "select" && this.pageReady) this.selectionPointer = event.pointerId;
+      this.commentPress = this.mode === "reading" && event.button === 0
+        ? { pointer: event.pointerId, start: { x: event.clientX, y: event.clientY }, dragged: false } : null;
     });
     this.registerDomEvent(this.viewport, "pointermove", event => this.moveGesture(event));
-    this.registerDomEvent(this.viewport, "pointermove", event => this.previewComment(event));
-    this.registerDomEvent(this.viewport, "pointerleave", () => this.commentPreview.scheduleHide());
+    this.registerDomEvent(this.contentEl.ownerDocument, "pointermove", event => {
+      const press = this.commentPress;
+      if (press?.pointer === event.pointerId && Math.hypot(event.clientX - press.start.x, event.clientY - press.start.y) > 4) press.dragged = true;
+    });
+    this.registerDomEvent(this.pageEl, "click", event => this.openCommentAt(event));
+    this.registerDomEvent(this.contentEl.ownerDocument, "pointerdown", event => {
+      if (!this.commentPreview.contains(event.target as Node | null)) this.commentPreview.hide();
+    });
     this.registerDomEvent(this.viewport, "pointerup", event => { this.endGesture(event); if (this.selectionPointer === null) this.captureSelection(); });
     this.registerDomEvent(this.contentEl.ownerDocument, "pointerup", event => {
       if (this.selectionPointer !== event.pointerId) return;
       this.selectionPointer = null; this.captureSelection();
     });
     this.registerDomEvent(this.contentEl.ownerDocument, "pointercancel", event => {
+      if (this.commentPress?.pointer === event.pointerId) this.commentPress = null;
       if (this.selectionPointer !== event.pointerId) return;
       this.selectionPointer = null; this.clearSelection(); this.win.getSelection()?.removeAllRanges();
     });
@@ -303,7 +313,7 @@ export class PdfAnnotatorView extends FileView {
   }
   private releaseDocument() {
     this.commentPreview.hide();
-    this.selectionPointer = null;
+    this.selectionPointer = null; this.commentPress = null;
     this.generation++; this.pageGeneration++; this.searchGeneration++;
     this.thumbObserver?.disconnect();
     for (const task of this.renderTasks) task.cancel();
@@ -526,16 +536,17 @@ export class PdfAnnotatorView extends FileView {
       this.clearSelection(); this.win.getSelection()?.removeAllRanges(); this.renderAnnotations(); if (this.mode === "canvas") this.fit(); void this.save();
     }, this.categories.active()).open();
   }
-  private previewComment(event: PointerEvent) {
-    if (this.mode !== "reading" || event.buttons || this.selectionPointer !== null || this.selection) {
-      this.commentPreview.hide(); return;
-    }
+  private openCommentAt(event: MouseEvent) {
+    const press = this.commentPress; this.commentPress = null;
+    if (this.mode !== "reading" || !this.pageReady || event.button !== 0 || event.detail !== 1 || !press || press.dragged) return;
+    this.captureSelection();
+    if (this.selectionPointer !== null || this.selection) return;
     const box = this.pageEl.getBoundingClientRect(), zoom = this.camera.zoom;
     const x = (event.clientX - box.left) / zoom, y = (event.clientY - box.top) / zoom;
     const matches = this.pageAnnotations().filter(annotation => annotation.quads.some(q => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h));
-    if (!matches.length) { this.commentPreview.scheduleHide(); return; }
+    if (!matches.length) return;
     const quad = matches[0].quads.find(q => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h)!;
-    this.commentPreview.show(matches, { left: box.left + quad.x * zoom, top: box.top + quad.y * zoom, bottom: box.top + (quad.y + quad.h) * zoom });
+    this.commentPreview.show(matches, { left: box.left + quad.x * zoom, top: box.top + quad.y * zoom, bottom: box.top + (quad.y + quad.h) * zoom }, this.root);
   }
   private captureSelection() {
     if (this.tool !== "select" || !this.pageReady) return;
@@ -616,6 +627,7 @@ export class PdfAnnotatorView extends FileView {
   private bounds() { return sceneBounds(this.pageWidth, this.pageHeight, this.cardBounds()); }
   private setMode(mode: "canvas" | "reading") {
     if (mode === this.mode) return;
+    this.commentPress = null;
     this.clearSelection(); this.win.getSelection()?.removeAllRanges();
     if (mode === "reading") this.canvasCamera = { ...this.camera };
     this.mode = mode; this.root.toggleClass("pdfaw-reading", mode === "reading");

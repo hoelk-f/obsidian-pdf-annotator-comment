@@ -22183,15 +22183,11 @@ var CommentPreview = class {
     this.viewport = viewport;
     this.categoryFor = categoryFor;
     this.actions = actions;
-    this.key = "";
     this.returnFocus = null;
     this.el = root.createDiv({ cls: "pdfaw-comment-preview", attr: { role: "region", "aria-label": "Comments", tabindex: "0" } });
     this.el.hidden = true;
-    this.el.onpointerenter = () => this.cancelHide();
-    this.el.onpointerleave = () => this.scheduleHide();
-    this.el.addEventListener("focusin", () => this.cancelHide());
     this.el.addEventListener("focusout", (event) => {
-      if (!this.el.contains(event.relatedTarget)) this.scheduleHide();
+      if (!this.contains(event.relatedTarget)) this.hide();
     });
     this.el.onkeydown = (event) => {
       if (event.key === "Escape") {
@@ -22204,10 +22200,6 @@ var CommentPreview = class {
     return this.root.ownerDocument.defaultView;
   }
   show(annotations, anchor, opener) {
-    this.cancelHide();
-    const key = annotations.map((a) => `${a.id}:${a.updatedAt}`).join("|");
-    if (!this.el.hidden && this.key === key && !opener) return;
-    this.key = key;
     this.returnFocus = opener ?? null;
     this.el.empty();
     this.el.hidden = false;
@@ -22251,24 +22243,18 @@ var CommentPreview = class {
     const top = below + height <= view.bottom - 8 ? below : Math.max(view.top + 8, anchor.top - height - 8);
     this.el.style.left = `${left - root.left}px`;
     this.el.style.top = `${top - root.top}px`;
-    if (opener) this.el.focus();
+    if (opener) this.el.focus({ preventScroll: true });
   }
-  scheduleHide() {
-    if (this.el.contains(this.root.ownerDocument.activeElement)) return;
-    this.cancelHide();
-    this.hideTimer = this.win.setTimeout(() => this.hide(), 180);
-  }
-  cancelHide() {
-    this.win.clearTimeout(this.hideTimer);
-    this.hideTimer = void 0;
+  contains(target) {
+    return this.el.contains(target);
   }
   hide() {
-    const hadFocus = this.el.contains(this.root.ownerDocument.activeElement);
-    this.cancelHide();
-    this.el.hidden = true;
-    this.key = "";
-    if (hadFocus) this.returnFocus?.focus();
+    if (this.el.hidden) return;
+    const hadFocus = this.contains(this.root.ownerDocument.activeElement);
+    const opener = this.returnFocus;
     this.returnFocus = null;
+    this.el.hidden = true;
+    if (hadFocus) opener?.focus({ preventScroll: true });
   }
   destroy() {
     this.hide();
@@ -22551,6 +22537,7 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
     this.filter = null;
     this.selection = null;
     this.selectionPointer = null;
+    this.commentPress = null;
     this.activeId = null;
     this.gesture = null;
     this.searchPages = [];
@@ -22725,10 +22712,17 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
     this.registerDomEvent(this.viewport, "pointerdown", (event) => this.startPan(event));
     this.registerDomEvent(this.pageEl, "pointerdown", (event) => {
       if (event.button === 0 && this.tool === "select" && this.pageReady) this.selectionPointer = event.pointerId;
+      this.commentPress = this.mode === "reading" && event.button === 0 ? { pointer: event.pointerId, start: { x: event.clientX, y: event.clientY }, dragged: false } : null;
     });
     this.registerDomEvent(this.viewport, "pointermove", (event) => this.moveGesture(event));
-    this.registerDomEvent(this.viewport, "pointermove", (event) => this.previewComment(event));
-    this.registerDomEvent(this.viewport, "pointerleave", () => this.commentPreview.scheduleHide());
+    this.registerDomEvent(this.contentEl.ownerDocument, "pointermove", (event) => {
+      const press = this.commentPress;
+      if (press?.pointer === event.pointerId && Math.hypot(event.clientX - press.start.x, event.clientY - press.start.y) > 4) press.dragged = true;
+    });
+    this.registerDomEvent(this.pageEl, "click", (event) => this.openCommentAt(event));
+    this.registerDomEvent(this.contentEl.ownerDocument, "pointerdown", (event) => {
+      if (!this.commentPreview.contains(event.target)) this.commentPreview.hide();
+    });
     this.registerDomEvent(this.viewport, "pointerup", (event) => {
       this.endGesture(event);
       if (this.selectionPointer === null) this.captureSelection();
@@ -22739,6 +22733,7 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
       this.captureSelection();
     });
     this.registerDomEvent(this.contentEl.ownerDocument, "pointercancel", (event) => {
+      if (this.commentPress?.pointer === event.pointerId) this.commentPress = null;
       if (this.selectionPointer !== event.pointerId) return;
       this.selectionPointer = null;
       this.clearSelection();
@@ -22856,6 +22851,7 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
   releaseDocument() {
     this.commentPreview.hide();
     this.selectionPointer = null;
+    this.commentPress = null;
     this.generation++;
     this.pageGeneration++;
     this.searchGeneration++;
@@ -23183,20 +23179,18 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
       void this.save();
     }, this.categories.active()).open();
   }
-  previewComment(event) {
-    if (this.mode !== "reading" || event.buttons || this.selectionPointer !== null || this.selection) {
-      this.commentPreview.hide();
-      return;
-    }
+  openCommentAt(event) {
+    const press = this.commentPress;
+    this.commentPress = null;
+    if (this.mode !== "reading" || !this.pageReady || event.button !== 0 || event.detail !== 1 || !press || press.dragged) return;
+    this.captureSelection();
+    if (this.selectionPointer !== null || this.selection) return;
     const box = this.pageEl.getBoundingClientRect(), zoom = this.camera.zoom;
     const x = (event.clientX - box.left) / zoom, y = (event.clientY - box.top) / zoom;
     const matches = this.pageAnnotations().filter((annotation) => annotation.quads.some((q) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h));
-    if (!matches.length) {
-      this.commentPreview.scheduleHide();
-      return;
-    }
+    if (!matches.length) return;
     const quad2 = matches[0].quads.find((q) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h);
-    this.commentPreview.show(matches, { left: box.left + quad2.x * zoom, top: box.top + quad2.y * zoom, bottom: box.top + (quad2.y + quad2.h) * zoom });
+    this.commentPreview.show(matches, { left: box.left + quad2.x * zoom, top: box.top + quad2.y * zoom, bottom: box.top + (quad2.y + quad2.h) * zoom }, this.root);
   }
   captureSelection() {
     if (this.tool !== "select" || !this.pageReady) return;
@@ -23321,6 +23315,7 @@ var PdfAnnotatorView = class extends import_obsidian5.FileView {
   }
   setMode(mode) {
     if (mode === this.mode) return;
+    this.commentPress = null;
     this.clearSelection();
     this.win.getSelection()?.removeAllRanges();
     if (mode === "reading") this.canvasCamera = { ...this.camera };

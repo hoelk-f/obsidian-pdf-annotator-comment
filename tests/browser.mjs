@@ -203,25 +203,67 @@ try {
   const scrollBefore = await evaluate('view.viewport.scrollTop');
   assert.ok(scrollBefore > 0, 'Reading mode scrolls naturally');
   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
-  const hover = await evaluate(`(() => {
+  const passage = await evaluate(`(() => {
     const a=view.sidecar.annotations[0],q=a.quads[0],r=view.pageEl.getBoundingClientRect(),z=view.camera.zoom;
-    return {x:r.x+(q.x+q.w/2)*z,y:r.y+(q.y+q.h/2)*z,title:a.title,comment:a.comment};
+    return {x:r.x+(q.x+q.w/2)*z,y:r.y+(q.y+q.h/2)*z,width:q.w*z,title:a.title,comment:a.comment};
   })()`);
-  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hover.x, y: hover.y, buttons: 0 });
+  const clickAt = async ({x, y}) => {
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
+  };
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: passage.x, y: passage.y, buttons: 0 });
+  await evaluate('new Promise(resolve=>setTimeout(resolve,250))');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'Hovering a highlight does not reveal its comment');
+  // A native text-selection drag across an existing highlight must still select
+  // text and offer the category toolbar without opening the existing comment.
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: passage.x - passage.width / 3, y: passage.y, button: 'left', buttons: 1, clickCount: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: passage.x + passage.width / 3, y: passage.y, button: 'left', buttons: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: passage.x + passage.width / 3, y: passage.y, button: 'left', buttons: 0, clickCount: 1 });
+  await until('view.selection?.text.length > 0');
+  assert.equal(await evaluate('view.selectionBar.hidden'), false, 'Selecting highlighted text still offers a new comment');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'Selection drag does not open the existing comment');
+  await evaluate('getSelection().removeAllRanges()');
+  await until('view.selection === null');
+  // A drag ending with no selection is not a click, either.
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: passage.x, y: passage.y, button: 'left', buttons: 1, clickCount: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: passage.x + 20, y: passage.y, button: 'left', buttons: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: passage.x, y: passage.y, button: 'left', buttons: 1 });
+  await evaluate('getSelection().removeAllRanges()');
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: passage.x, y: passage.y, button: 'left', buttons: 0, clickCount: 1 });
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'A drag back to its origin does not reveal a comment');
+  await clickAt(passage);
   await until('!document.querySelector(".pdfaw-comment-preview").hidden');
-  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-item h3").textContent'), hover.title);
-  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-body").textContent'), hover.comment);
+  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-item h3").textContent'), passage.title);
+  assert.equal(await evaluate('document.querySelector(".pdfaw-preview-body").textContent'), passage.comment);
+  assert.equal(await evaluate('view.viewport.scrollTop'), scrollBefore, 'Opening a comment preserves reading position');
   const previewBox = await evaluate(`(() => {const r=document.querySelector('.pdfaw-comment-preview').getBoundingClientRect();return {x:r.x+20,y:r.y+20,right:r.right,bottom:r.bottom};})()`);
   assert.ok(previewBox.right <= 1672 && previewBox.bottom <= 941, 'Preview fits in the viewport');
   await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: previewBox.x, y: previewBox.y, buttons: 0 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4, buttons: 0 });
   await evaluate('new Promise(resolve=>setTimeout(resolve,250))');
-  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'Preview stays open while hovered');
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), false, 'A clicked comment stays open after the pointer leaves');
+  await clickAt({x: 4, y: 4});
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'Clicking outside dismisses the comment');
+  await clickAt(passage);
+  await until('!document.querySelector(".pdfaw-comment-preview").hidden');
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+  assert.equal(await evaluate('document.querySelector(".pdfaw-comment-preview").hidden'), true, 'Escape closes a comment opened from a passage');
+  assert.equal(await evaluate('document.activeElement.classList.contains("pdfaw-root")'), true, 'Escape restores focus to the PDF view');
+  await clickAt(passage);
+  await until('!document.querySelector(".pdfaw-comment-preview").hidden');
   const previewShot = await cdp('Page.captureScreenshot', { format: 'png' });
   await writeFile(path.join(artifacts, 'comment-preview.png'), Buffer.from(previewShot.data, 'base64'));
+  const editPoint = await evaluate(`(() => {
+    const r = document.querySelector('.pdfaw-preview-actions button[title="Edit comment"]').getBoundingClientRect();
+    return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+  })()`);
+  await clickAt(editPoint);
+  assert.equal(await evaluate('document.querySelector(".modal").dataset.title'), 'Edit comment', 'A real pointer click inside the preview opens the editor');
   // Reopen in the same task as saving/deleting. New hidden canvas cards still
   // have pending ResizeObserver notifications, which must not close Reading previews.
   await evaluate(`(() => {
-    document.querySelector('.pdfaw-preview-actions button[title="Edit comment"]').click();
     const body = document.querySelector('.pdfaw-editor-body');
     body.value = 'Updated from Reading preview'; body.dispatchEvent(new Event('input'));
     [...document.querySelectorAll('.modal button')].find(button => button.textContent === 'Save').click();

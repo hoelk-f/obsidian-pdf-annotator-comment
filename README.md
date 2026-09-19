@@ -17,7 +17,7 @@ Use it for manuals, reports, books, articles, and other PDF documents in your va
 | --- | --- |
 | Focus on one PDF page with normal scrolling. | Arrange comment cards around the PDF. |
 | Select a passage and add a comment from the floating toolbar. | Follow colored connectors back to the source passage. |
-| Hover a highlight to read, edit, or delete its comment. | Pan, zoom, filter categories, and navigate with the minimap. |
+| Click a highlight to read, edit, or delete its comment. | Pan, zoom, filter categories, and navigate with the minimap. |
 | Keep your reading position when saving a comment. | Keep your card positions when switching modes. |
 
 Classify annotations as **Claim**, **Evidence**, **Method**, **Concept**,
@@ -64,7 +64,7 @@ Copy the contents of `dist/remark-my-words/` into the plugin folder above.
 2. Run **Remark My Words: Open PDF** from the command palette or click the pen-and-file ribbon icon. The active PDF opens immediately; otherwise choose a PDF from the vault. You can also right-click a PDF and choose **Open in Remark My Words**.
 3. Use the **book** icon for Reading or the **dashboard** icon for Canvas. Tooltips identify each control.
 4. Select text, click a category in the floating toolbar, and fill in **Add comment**. Right-clicking selected text also offers categories.
-5. In Reading, hover a highlighted passage to read its comment. The **Read page comments** button also works with a keyboard or touch input.
+5. In Reading, click a highlighted passage to open its comment, then use **Edit** or **Delete** as needed. Click outside the preview, press **Escape**, or use its close button to dismiss it. The **Read page comments** button also works with a keyboard or touch input.
 6. In Canvas, drag a card by its header. Double-click it to edit; its **…** menu provides category changes and deletion. **↗ p. …** takes you back to the passage.
 
 Navigate pages with thumbnails, arrows, or the page number. Search with Enter

@@ -4,8 +4,6 @@ import { Annotation, CategoryStyle } from "./model";
 /** A reading preview outside the scaled PDF; highlights remain pointer-transparent. */
 export class CommentPreview {
   private el: HTMLDivElement;
-  private hideTimer: number | undefined;
-  private key = "";
   private returnFocus: HTMLElement | null = null;
   private get win() { return this.root.ownerDocument.defaultView!; }
 
@@ -17,20 +15,14 @@ export class CommentPreview {
   ) {
     this.el = root.createDiv({ cls: "pdfaw-comment-preview", attr: { role: "region", "aria-label": "Comments", tabindex: "0" } });
     this.el.hidden = true;
-    this.el.onpointerenter = () => this.cancelHide();
-    this.el.onpointerleave = () => this.scheduleHide();
-    this.el.addEventListener("focusin", () => this.cancelHide());
-    this.el.addEventListener("focusout", event => { if (!this.el.contains(event.relatedTarget as Node | null)) this.scheduleHide(); });
+    this.el.addEventListener("focusout", event => { if (!this.contains(event.relatedTarget as Node | null)) this.hide(); });
     this.el.onkeydown = event => {
       if (event.key === "Escape") { event.stopPropagation(); this.hide(); }
     };
   }
 
   show(annotations: Annotation[], anchor: { left: number; bottom: number; top: number }, opener?: HTMLElement) {
-    this.cancelHide();
-    const key = annotations.map(a => `${a.id}:${a.updatedAt}`).join("|");
-    if (!this.el.hidden && this.key === key && !opener) return;
-    this.key = key; this.returnFocus = opener ?? null;
+    this.returnFocus = opener ?? null;
     this.el.empty(); this.el.hidden = false;
     const heading = this.el.createDiv({ cls: "pdfaw-preview-heading" });
     heading.createSpan({ text: annotations.length === 1 ? "Comment" : "Comments" });
@@ -65,20 +57,16 @@ export class CommentPreview {
     const below = anchor.bottom + 8;
     const top = below + height <= view.bottom - 8 ? below : Math.max(view.top + 8, anchor.top - height - 8);
     this.el.style.left = `${left - root.left}px`; this.el.style.top = `${top - root.top}px`;
-    if (opener) this.el.focus();
+    if (opener) this.el.focus({ preventScroll: true });
   }
 
-  scheduleHide() {
-    if (this.el.contains(this.root.ownerDocument.activeElement)) return;
-    this.cancelHide();
-    this.hideTimer = this.win.setTimeout(() => this.hide(), 180);
-  }
-  private cancelHide() { this.win.clearTimeout(this.hideTimer); this.hideTimer = undefined; }
+  contains(target: Node | null) { return this.el.contains(target); }
   hide() {
-    const hadFocus = this.el.contains(this.root.ownerDocument.activeElement);
-    this.cancelHide(); this.el.hidden = true; this.key = "";
-    if (hadFocus) this.returnFocus?.focus();
-    this.returnFocus = null;
+    if (this.el.hidden) return;
+    const hadFocus = this.contains(this.root.ownerDocument.activeElement);
+    const opener = this.returnFocus; this.returnFocus = null;
+    this.el.hidden = true;
+    if (hadFocus) opener?.focus({ preventScroll: true });
   }
   destroy() { this.hide(); this.el.remove(); }
 }

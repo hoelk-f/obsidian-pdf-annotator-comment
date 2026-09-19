@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5 — 2026-09-19
+- Open Reading-mode comments by clicking highlighted passages instead of hovering; keep previews open until dismissed.
+- Preserve text selection when dragging across highlights and keep comment editing, deletion, and keyboard access available.
+
 ## 0.2.4 — 2026-09-19
 - Describe the plugin for PDFs in general, including manuals, reports, books, and articles.
 
