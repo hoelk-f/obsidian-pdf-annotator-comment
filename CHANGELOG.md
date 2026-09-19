@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.4 — 2026-09-19
+- Describe the plugin for PDFs in general, including manuals, reports, books, and articles.
+
 ## 0.2.3 — 2026-09-19
 
 - See the GitHub release notes for the included changes.

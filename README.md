@@ -1,10 +1,11 @@
 ﻿# Remark My Words
 
-**Read a paper. Mark a passage. Give your thoughts room.**
+**Read a PDF. Mark a passage. Give your thoughts room.**
 
 Remark My Words is an Obsidian community plugin for reading and annotating PDFs.
 Write categorized comments beside passages, then switch to a canvas where your
 notes become movable cards connected to the original text.
+Use it for manuals, reports, books, articles, and other PDF documents in your vault.
 
 ![PDF page surrounded by categorized comment cards and colored connectors](docs/images/canvas-preview.png)
 
@@ -93,8 +94,8 @@ and GitHub.
 Comments and notes are stored beside the PDF in a readable JSON file:
 
 ```text
-paper.pdf
-paper.pdf.obsidian-annot.json
+document.pdf
+document.pdf.obsidian-annot.json
 ```
 
 The original PDF is not modified. Keep the PDF and its annotation file together
